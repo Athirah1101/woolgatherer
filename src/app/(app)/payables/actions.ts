@@ -107,6 +107,7 @@ export async function saveRecurring(_: ActionState, fd: FormData): Promise<Actio
       category_id: s(fd, "category_id") || null,
       frequency: s(fd, "frequency") || "monthly",
       due_day: n(fd, "due_day") || 1,
+      due_month: Number(s(fd, "due_month")) || null,
       default_amount: n(fd, "default_amount"),
       amount_type: s(fd, "amount_type") || "fixed",
       payment_method_id: s(fd, "payment_method_id") || null,

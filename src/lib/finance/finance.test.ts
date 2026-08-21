@@ -169,6 +169,7 @@ describe("Payables", () => {
     const rule = {
       frequency: "monthly" as const,
       due_day: 15,
+      due_month: null,
       start_date: "2026-01-15",
       end_date: null,
       active: true,
@@ -178,10 +179,30 @@ describe("Payables", () => {
     expect(dues[1].period_key).toBe("2026-09");
   });
 
+  it("Scenario F2 — yearly rule anchors to the chosen due_month", () => {
+    const rule = {
+      frequency: "yearly" as const,
+      due_day: 10,
+      due_month: 3, // March
+      start_date: "2026-01-01",
+      end_date: null,
+      active: true,
+    };
+    // Only March 2026 falls in the window; not August.
+    expect(dueDatesForRule(rule, "2026-01-01", "2026-12-31").map((d) => d.due_date)).toEqual([
+      "2026-03-10",
+    ]);
+    // Next year's occurrence is the following March.
+    expect(dueDatesForRule(rule, "2027-01-01", "2027-12-31").map((d) => d.due_date)).toEqual([
+      "2027-03-10",
+    ]);
+  });
+
   it("Scenario G — variable rule: generation is period-idempotent, amounts independent", () => {
     const rule = {
       frequency: "monthly" as const,
       due_day: 15,
+      due_month: null,
       start_date: "2026-08-15",
       end_date: null,
       active: true,

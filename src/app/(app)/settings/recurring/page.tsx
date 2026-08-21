@@ -10,6 +10,18 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
+import { FrequencyFields } from "./FrequencyFields";
+
+const MONTH_ABBR = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+/** Human label for a rule's due timing, e.g. "Day 15" or "15 Mar". */
+function dueLabel(r: RecurringPayable): string {
+  if (r.frequency !== "monthly" && r.due_month)
+    return `${r.due_day} ${MONTH_ABBR[r.due_month - 1]}`;
+  return `Day ${r.due_day}`;
+}
 
 /** Annualised amount (in sen) for a rule, based on its frequency. */
 function annualAmount(r: RecurringPayable): number {
@@ -84,7 +96,7 @@ export default async function RecurringPage() {
                   <TD className="text-muted">{categoryName(cats, r.category_id)}</TD>
                   <TD className="text-muted">{methodName(methods, r.payment_method_id)}</TD>
                   <TD className="capitalize">{r.frequency}</TD>
-                  <TD>Day {r.due_day}</TD>
+                  <TD>{dueLabel(r)}</TD>
                   <TD right>{formatMYR(r.default_amount)}</TD>
                   <TD><Chip tone={r.amount_type === "variable" ? "amber" : "gray"}>{r.amount_type}</Chip></TD>
                   <TD><Chip tone={r.active ? "green" : "gray"}>{r.active ? "Active" : "Inactive"}</Chip></TD>
@@ -123,16 +135,11 @@ function RuleForm({
           {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
       </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Frequency">
-          <Select name="frequency" defaultValue={rule?.frequency ?? "monthly"}>
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="yearly">Yearly</option>
-          </Select>
-        </Field>
-        <Field label="Due Day (of month)"><Input type="number" name="due_day" min={1} max={31} defaultValue={rule?.due_day ?? 1} /></Field>
-      </div>
+      <FrequencyFields
+        defaultFrequency={rule?.frequency ?? "monthly"}
+        defaultDueDay={rule?.due_day ?? 1}
+        defaultDueMonth={rule?.due_month}
+      />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Default Amount"><MoneyInput name="default_amount" defaultValue={rule?.default_amount ?? 0} /></Field>
         <Field label="Amount Type" hint="Variable = editable each month (e.g. EPF).">

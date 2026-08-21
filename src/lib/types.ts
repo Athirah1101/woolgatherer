@@ -89,6 +89,8 @@ export interface RecurringPayable {
   category_id: string | null;
   frequency: "monthly" | "quarterly" | "yearly";
   due_day: number;
+  /** For yearly/quarterly rules, which month (1–12) the cycle anchors to. */
+  due_month: number | null;
   default_amount: number;
   amount_type: "fixed" | "variable";
   payment_method_id: string | null;

@@ -58,7 +58,7 @@ export const FREQUENCY_MONTHS: Record<RecurringPayable["frequency"], number> = {
 export function dueDatesForRule(
   rule: Pick<
     RecurringPayable,
-    "frequency" | "due_day" | "start_date" | "end_date" | "active"
+    "frequency" | "due_day" | "due_month" | "start_date" | "end_date" | "active"
   >,
   fromISO: string,
   throughISO: string,
@@ -67,8 +67,14 @@ export function dueDatesForRule(
   const step = FREQUENCY_MONTHS[rule.frequency];
   const out: { period_key: string; due_date: string }[] = [];
 
-  // Walk period anchors from the rule's start month.
-  let anchor = rule.start_date.slice(0, 8) + "01"; // first of start month
+  // Walk period anchors. For yearly/quarterly rules the cycle anchors to the
+  // chosen `due_month`; otherwise it falls back to the rule's start month.
+  const startYear = rule.start_date.slice(0, 4);
+  const anchorMonth =
+    rule.frequency !== "monthly" && rule.due_month
+      ? String(rule.due_month).padStart(2, "0")
+      : rule.start_date.slice(5, 7);
+  let anchor = `${startYear}-${anchorMonth}-01`; // first of the anchor month
   // Safety cap to avoid runaway loops.
   for (let i = 0; i < 600; i++) {
     const due = dayOfMonth(anchor, rule.due_day);
