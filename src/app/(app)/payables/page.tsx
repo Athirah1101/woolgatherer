@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
 import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
-  Table, TBody, TD, TH, THead, TR,
+  Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
 import { Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
@@ -12,9 +13,14 @@ import { formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { cancelPayable, markPayablePaid, savePayable } from "./actions";
 
-export default async function PayablesPage() {
+export default async function PayablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
+  const sp = await searchParams;
   const rows = await getPayableRows();
   const cats = await getCategories("payable");
   const methods = await getPaymentMethods();
@@ -24,6 +30,17 @@ export default async function PayablesPage() {
   const dueToday = sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => r.payable.amount));
   const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount));
   const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount));
+
+  // ---- View filter: default hides paid so the list stays short ----
+  const paidCount = rows.filter((r) => r.payable.status === "paid").length;
+  const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
+  const shown =
+    view === "all" ? rows : rows.filter((r) => r.payable.status === view);
+  const VIEWS: { key: string; label: string; count: number }[] = [
+    { key: "unpaid", label: "To Pay", count: unpaid.length },
+    { key: "paid", label: "Paid", count: paidCount },
+    { key: "all", label: "All", count: rows.length },
+  ];
 
   // Distinct vendor names, for the payee auto-complete list.
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
@@ -48,10 +65,30 @@ export default async function PayablesPage() {
         <SummaryCard label="Due Within 7 Days" value={formatMYR(due7)} tone="blue" />
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {VIEWS.map((v) => (
+          <Link
+            key={v.key}
+            href={v.key === "unpaid" ? "/payables" : `/payables?view=${v.key}`}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium transition",
+              view === v.key ? "bg-brand text-white" : "border border-border bg-surface hover:bg-gray-50",
+            )}
+          >
+            {v.label} <span className="opacity-70">({v.count})</span>
+          </Link>
+        ))}
+      </div>
+
       {rows.length === 0 ? (
         <EmptyState
           title="No payables yet."
           message="Add a one-off payable, or set up recurring rules in Settings → Recurring Payables."
+        />
+      ) : shown.length === 0 ? (
+        <EmptyState
+          title={view === "paid" ? "No paid payables yet." : "Nothing here."}
+          message={view === "paid" ? "Payables you mark as paid will show up here." : "Try a different filter."}
         />
       ) : (
         <Card padded={false}>
@@ -68,7 +105,7 @@ export default async function PayablesPage() {
               </TR>
             </THead>
             <TBody>
-              {rows.map(({ payable: p, attention }) => {
+              {shown.map(({ payable: p, attention }) => {
                 const chip = payableAttentionChip(attention.level);
                 return (
                   <TR key={p.id}>
