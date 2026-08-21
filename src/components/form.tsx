@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useFormStatus } from "react-dom";
 import { buttonClass, cn } from "@/components/ui";
+import { todayISO } from "@/lib/finance/dates";
 
 export type ActionState = { ok?: boolean; error?: string } | null;
 
@@ -64,6 +65,25 @@ export function MoneyInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
         RM
       </span>
       <Input type="number" step="0.01" min="0" {...props} className={cn("pl-9", props.className)} />
+    </div>
+  );
+}
+
+/** Date input with a quick "Today" button. */
+export function DateWithToday({
+  name,
+  defaultValue,
+}: {
+  name: string;
+  defaultValue?: string;
+}) {
+  const [value, setValue] = useState(defaultValue ?? "");
+  return (
+    <div className="flex gap-2">
+      <Input type="date" name={name} value={value} onChange={(e) => setValue(e.target.value)} />
+      <button type="button" className={buttonClass("secondary")} onClick={() => setValue(todayISO())}>
+        Today
+      </button>
     </div>
   );
 }

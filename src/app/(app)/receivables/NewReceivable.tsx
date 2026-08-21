@@ -171,6 +171,9 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
                 </div>
               </div>
 
+              <Field label="Remarks">
+                <Input name="remarks" placeholder="Short note shown in the table" />
+              </Field>
               <Field label="Notes">
                 <Textarea name="notes" />
               </Field>

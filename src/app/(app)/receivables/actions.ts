@@ -67,6 +67,7 @@ export async function createReceivable(_: ActionState, fd: FormData): Promise<Ac
         payment_plan_type: s(fd, "payment_plan_type") || "custom",
         hrdc_applicable: fd.get("hrdc_applicable") === "on",
         notes: s(fd, "notes") || null,
+        remarks: s(fd, "remarks") || null,
         created_by: session.userId,
       })
       .select("id")
@@ -118,6 +119,7 @@ export async function updateReceivable(_: ActionState, fd: FormData): Promise<Ac
         hrdc_applicable: fd.get("hrdc_applicable") === "on",
         status: s(fd, "status") || "active",
         notes: s(fd, "notes") || null,
+        remarks: s(fd, "remarks") || null,
       })
       .eq("id", id);
     if (error) return { error: error.message };

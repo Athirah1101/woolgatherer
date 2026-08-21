@@ -316,10 +316,13 @@ function EditReceivable({ r }: { r: import("@/lib/types").Receivable }) {
       <Field label="Status">
         <Select name="status" defaultValue={r.status}>
           <option value="active">Active</option>
+          <option value="on_hold">On Hold</option>
+          <option value="stopped">Stopped</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </Select>
       </Field>
+      <Field label="Remarks"><Input name="remarks" defaultValue={r.remarks ?? ""} /></Field>
       <Field label="HRDC Applicable">
         <label className="flex items-center gap-2 py-2 text-sm">
           <input type="checkbox" name="hrdc_applicable" defaultChecked={r.hrdc_applicable} className="h-4 w-4" /> Yes

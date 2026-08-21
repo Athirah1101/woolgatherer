@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { getBankAccounts } from "@/lib/data/refs";
 import { Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
-import { Field, FormDrawer, Input, MoneyInput, Select } from "@/components/form";
+import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { sumMoney } from "@/lib/finance/money";
@@ -35,7 +35,7 @@ function BankForm({
         <MoneyInput name="current_balance" defaultValue={acc?.current_balance ?? 0} required />
       </Field>
       <Field label="Balance As Of">
-        <Input type="date" name="balance_as_of" defaultValue={acc?.balance_as_of ?? todayISO()} />
+        <DateWithToday name="balance_as_of" defaultValue={acc?.balance_as_of ?? todayISO()} />
       </Field>
       <Field label="Status">
         <Select name="active" defaultValue={acc?.active === false ? "false" : "true"}>

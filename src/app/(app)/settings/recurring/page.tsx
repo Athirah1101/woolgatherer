@@ -24,7 +24,7 @@ export default async function RecurringPage() {
         actions={
           <div className="flex gap-2">
             <form action={generateRecurringPayables}>
-              <button className={buttonClass("secondary")}>Generate upcoming (3 months)</button>
+              <button className={buttonClass("secondary")}>Generate this month</button>
             </form>
             <RuleForm cats={cats} methods={methods} />
           </div>

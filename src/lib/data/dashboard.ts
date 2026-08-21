@@ -1,6 +1,5 @@
 import { getReceivableRows } from "./receivables";
 import { getPayableRows } from "./payables";
-import { getExpenses } from "./expenses";
 import { getHrdcRows } from "./hrdc";
 import { getBankAccounts } from "./refs";
 import { buildMovements } from "./cashflow";
@@ -15,7 +14,6 @@ export interface DashboardData {
   projectedMonthEnd: number;
   recv: { outstanding: number; overdue: number; dueThisWeek: number; dueThisMonth: number };
   pay: { overdue: number; dueToday: number; due3: number; due7: number };
-  exp: { thisMonth: number; awaitingPayment: number; awaitingVerification: number };
   hrdc: {
     awaitingGrant: number; trainingUpcoming: number; toSubmit: number; processing: number;
     fundsReceived: number; refundDue: number; refundsDue7: number; refundsOverdue: number; queriesOpen: number;
@@ -27,10 +25,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   const today = todayISO();
   const month = today.slice(0, 7);
 
-  const [recvRows, payRows, expenses, hrdcRows, banks, movements] = await Promise.all([
+  const [recvRows, payRows, hrdcRows, banks, movements] = await Promise.all([
     getReceivableRows(),
     getPayableRows(),
-    getExpenses(),
     getHrdcRows(),
     getBankAccounts(),
     buildMovements(),
@@ -63,13 +60,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     dueToday: sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => r.payable.amount)),
     due3: sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount)),
     due7: sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount)),
-  };
-
-  // Expenses
-  const exp = {
-    thisMonth: sumMoney(expenses.filter((e) => (e.invoice_date ?? "").slice(0, 7) === month).map((e) => e.amount)),
-    awaitingPayment: expenses.filter((e) => e.status === "new" || e.status === "awaiting_payment").length,
-    awaitingVerification: expenses.filter((e) => e.status === "awaiting_verification").length,
   };
 
   // HRDC
@@ -111,15 +101,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       });
     }
   }
-  if (exp.awaitingVerification > 0) {
-    items.push({
-      id: "exp-verify",
-      severity: "medium",
-      module: "expenses",
-      title: `${exp.awaitingVerification} expense${exp.awaitingVerification === 1 ? "" : "s"} awaiting verification`,
-      href: "/expenses",
-    });
-  }
   if (hrdc.toSubmit > 0) {
     items.push({
       id: "hrdc-submit",
@@ -150,5 +131,5 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
-  return { currentCash, projectedMonthEnd, recv, pay, exp, hrdc, attention: sortAttention(items) };
+  return { currentCash, projectedMonthEnd, recv, pay, hrdc, attention: sortAttention(items) };
 }

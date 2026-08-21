@@ -108,8 +108,9 @@ export function summarizeReceivable(
   const totalExpected = sumMoney(sorted.map((s) => s.expected_amount));
   const totalPaid = sumMoney(livePayments.map((p) => p.amount));
   const totalAllocated = sumMoney(liveAllocations.map((a) => a.amount));
-  const outstanding = Math.max(0, subMoney(totalExpected, totalAllocated));
-  const credit = Math.max(0, subMoney(totalPaid, totalAllocated));
+  // Outstanding = deal amount − total paid (per Finance's preferred formula).
+  const outstanding = Math.max(0, subMoney(totalExpected, totalPaid));
+  const credit = Math.max(0, subMoney(totalPaid, totalExpected));
 
   const overdueViews = views.filter((v) => v.outstanding > 0 && diffDays(v.due_date, today) > 0);
   const overdueAmount = sumMoney(overdueViews.map((v) => v.outstanding));

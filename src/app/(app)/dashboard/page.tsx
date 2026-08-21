@@ -97,15 +97,6 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mb-8">
-            <SectionTitle>Expenses</SectionTitle>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <SummaryCard label="Expenses This Month" value={formatMYR(d.exp.thisMonth)} href="/expenses" />
-              <SummaryCard label="Awaiting Payment" value={d.exp.awaitingPayment} tone="amber" href="/expenses" />
-              <SummaryCard label="Awaiting Verification" value={d.exp.awaitingVerification} tone="orange" href="/expenses" />
-            </div>
-          </div>
-
-          <div className="mb-8">
             <SectionTitle>HRDC</SectionTitle>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
               <SummaryCard label="Claims To Submit" value={d.hrdc.toSubmit} tone="amber" href="/hrdc?tab=claim_to_submit" />

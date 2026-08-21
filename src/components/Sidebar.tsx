@@ -32,10 +32,11 @@ const NAV: Group[] = [
   },
   {
     heading: "Money Out",
-    items: [
-      { label: "Payables", href: "/payables", roles: FIN_MGMT },
-      { label: "Expenses", href: "/expenses", roles: FIN_MGMT },
-    ],
+    items: [{ label: "Payables", href: "/payables", roles: FIN_MGMT }],
+  },
+  {
+    heading: "HRDC",
+    items: [{ label: "Refunds", href: "/refunds", roles: FIN_MGMT }],
   },
   { items: [{ label: "Cashflow", href: "/cashflow", roles: FIN_MGMT }] },
   {

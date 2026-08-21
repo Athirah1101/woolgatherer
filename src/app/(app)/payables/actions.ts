@@ -7,7 +7,7 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import type { RecurringPayable } from "@/lib/types";
 import { dueDatesForRule } from "@/lib/finance/payables";
-import { addMonths, endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
+import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
 import { formatMYR } from "@/lib/finance/money";
 
 async function financeGuard() {
@@ -132,7 +132,7 @@ export async function generateRecurringPayables(): Promise<void> {
   const supabase = await createClient();
   const today = todayISO();
   const from = startOfMonth(today);
-  const through = endOfMonth(addMonths(today, 3)); // 3-month horizon
+  const through = endOfMonth(today); // current month only
 
   const { data: rules } = await supabase
     .from("recurring_payables")

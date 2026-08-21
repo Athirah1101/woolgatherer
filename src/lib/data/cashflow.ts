@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { CashMovement } from "@/lib/finance/cashflow";
-import type { Expense, Payable, ReceivablePayment } from "@/lib/types";
+import type { Payable, ReceivablePayment } from "@/lib/types";
 import { getReceivableRows } from "./receivables";
 import { getHrdcRows } from "./hrdc";
 import { addDays } from "@/lib/finance/dates";
@@ -103,28 +103,6 @@ export async function buildMovements(): Promise<CashMovement[]> {
         date: p.paid_date, direction: "out", actual: true, amount: p.paid_amount ?? p.amount,
         label: `${p.payee} — paid`, category: "payable", refType: "payable", refId: p.id,
       });
-    }
-  }
-
-  // --- Expenses
-  const { data: expenses } = await supabase.from("expenses").select("*");
-  for (const e of (expenses ?? []) as Expense[]) {
-    if (e.status === "new" || e.status === "awaiting_payment") {
-      const date = e.due_date ?? e.invoice_date;
-      if (date) {
-        movements.push({
-          date, direction: "out", actual: false, amount: e.amount,
-          label: `${e.vendor} — expense`, category: "expense", refType: "expense", refId: e.id,
-        });
-      }
-    } else if (["paid", "awaiting_verification", "verified"].includes(e.status)) {
-      const date = e.paid_date ?? e.invoice_date;
-      if (date) {
-        movements.push({
-          date, direction: "out", actual: true, amount: e.amount,
-          label: `${e.vendor} — expense paid`, category: "expense", refType: "expense", refId: e.id,
-        });
-      }
     }
   }
 

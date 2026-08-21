@@ -6,8 +6,6 @@ import type { CollectionStatus, ScheduleStatus } from "./receivables";
 import { collectionStatusLabel, scheduleStatusLabel } from "./receivables";
 import type { PayableAttentionLevel } from "./payables";
 import { PAYABLE_ATTENTION_LABEL } from "./payables";
-import type { ExpenseStatus } from "@/lib/types";
-import { EXPENSE_STATUS_LABEL } from "./expenses";
 import type { HrdcStage, RefundAttentionColor, RefundStatus } from "./hrdc";
 import { HRDC_STAGE_LABEL } from "./hrdc";
 
@@ -45,18 +43,6 @@ export function payableAttentionChip(l: PayableAttentionLevel): { label: string;
     later: "gray",
   };
   return { label: PAYABLE_ATTENTION_LABEL[l], tone: tone[l] };
-}
-
-export function expenseStatusChip(s: ExpenseStatus): { label: string; tone: Tone } {
-  const tone: Record<ExpenseStatus, Tone> = {
-    new: "gray",
-    awaiting_payment: "amber",
-    paid: "blue",
-    awaiting_verification: "orange",
-    verified: "green",
-    cancelled: "gray",
-  };
-  return { label: EXPENSE_STATUS_LABEL[s], tone: tone[s] };
 }
 
 export function hrdcStageChip(s: HrdcStage): { label: string; tone: Tone } {

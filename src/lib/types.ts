@@ -47,8 +47,9 @@ export interface Receivable {
   currency: string;
   payment_plan_type: string;
   hrdc_applicable: boolean;
-  status: "active" | "completed" | "cancelled";
+  status: "active" | "completed" | "cancelled" | "on_hold" | "stopped";
   notes: string | null;
+  remarks: string | null;
   created_at: string;
   updated_at: string;
 }
