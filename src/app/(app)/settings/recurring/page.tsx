@@ -1,20 +1,41 @@
 import { requireRole } from "@/lib/auth";
 import { getRecurringRules } from "@/lib/data/payables";
-import { getCategories, getPaymentMethods, categoryName } from "@/lib/data/refs";
+import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, PaymentMethod, RecurringPayable } from "@/lib/types";
 import {
-  buttonClass, Card, Chip, EmptyState, PageHeader, Table, TBody, TD, TH, THead, TR,
+  buttonClass, Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
 import { Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
-import { formatMYR } from "@/lib/finance/money";
-import { todayISO } from "@/lib/finance/dates";
+import { formatMYR, sumMoney } from "@/lib/finance/money";
+import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
+import { dueDatesForRule } from "@/lib/finance/payables";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
+
+/** Annualised amount (in sen) for a rule, based on its frequency. */
+function annualAmount(r: RecurringPayable): number {
+  if (!r.active) return 0;
+  const perYear = r.frequency === "monthly" ? 12 : r.frequency === "quarterly" ? 4 : 1;
+  return r.default_amount * perYear;
+}
 
 export default async function RecurringPage() {
   await requireRole("finance");
-  const rules = await getRecurringRules();
-  const cats = await getCategories("payable");
-  const methods = await getPaymentMethods();
+  const [rules, cats, methods] = await Promise.all([
+    getRecurringRules(),
+    getCategories("payable"),
+    getPaymentMethods(),
+  ]);
+
+  // ---- Overview / forecast ----
+  const today = todayISO();
+  const activeRules = rules.filter((r) => r.active);
+  const annualForecast = sumMoney(rules.map(annualAmount));
+  const monthlyForecast = Math.round(annualForecast / 12);
+  const dueThisMonth = sumMoney(
+    rules.flatMap((r) =>
+      dueDatesForRule(r, startOfMonth(today), endOfMonth(today)).map(() => r.default_amount),
+    ),
+  );
 
   return (
     <div>
@@ -31,6 +52,13 @@ export default async function RecurringPage() {
         }
       />
 
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <SummaryCard label="Forecasted Monthly" value={formatMYR(monthlyForecast)} tone="blue" sub="Average run-rate across all active rules" />
+        <SummaryCard label="Forecasted Yearly" value={formatMYR(annualForecast)} tone="indigo" sub="Total committed for a full year" />
+        <SummaryCard label="Due This Month" value={formatMYR(dueThisMonth)} tone="amber" sub="What these rules bill this month" />
+        <SummaryCard label="Active Rules" value={activeRules.length} tone="green" sub={`${rules.length} total`} />
+      </div>
+
       {rules.length === 0 ? (
         <EmptyState
           title="No recurring rules yet."
@@ -42,7 +70,7 @@ export default async function RecurringPage() {
           <Table>
             <THead>
               <TR>
-                <TH>Name</TH><TH>Category</TH><TH>Frequency</TH><TH>Due Day</TH>
+                <TH>Name</TH><TH>Category</TH><TH>Payment Method</TH><TH>Frequency</TH><TH>Due Day</TH>
                 <TH right>Default Amount</TH><TH>Amount</TH><TH>Status</TH><TH right>Actions</TH>
               </TR>
             </THead>
@@ -54,6 +82,7 @@ export default async function RecurringPage() {
                     {r.payee && r.payee !== r.name && <div className="text-xs text-muted">{r.payee}</div>}
                   </TD>
                   <TD className="text-muted">{categoryName(cats, r.category_id)}</TD>
+                  <TD className="text-muted">{methodName(methods, r.payment_method_id)}</TD>
                   <TD className="capitalize">{r.frequency}</TD>
                   <TD>Day {r.due_day}</TD>
                   <TD right>{formatMYR(r.default_amount)}</TD>

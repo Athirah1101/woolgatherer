@@ -18,8 +18,7 @@ export default async function ReceivablesPage({
   const asPic = sp.as;
   const isSalesView = profile.role === "sales" || Boolean(asPic);
 
-  const allRows = await getReceivableRows();
-  const salesPics = await getSalesPics();
+  const [allRows, salesPics] = await Promise.all([getReceivableRows(), getSalesPics()]);
 
   const scoped = asPic ? allRows.filter((r) => r.receivable.sales_pic === asPic) : allRows;
 
