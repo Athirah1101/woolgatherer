@@ -25,8 +25,16 @@ export default async function PayablesPage() {
   const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount));
   const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount));
 
+  // Distinct vendor names, for the payee auto-complete list.
+  const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
+
   return (
     <div>
+      {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
+      <datalist id="payable-vendors">
+        {vendors.map((v) => <option key={v} value={v} />)}
+      </datalist>
+
       <PageHeader
         title="Payables"
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
@@ -81,20 +89,19 @@ export default async function PayablesPage() {
                     <TD><AttentionBadge label={chip.label} tone={chip.tone} /></TD>
                     {isFinance && (
                       <TD right>
-                        {p.status === "unpaid" ? (
-                          <div className="flex justify-end gap-1">
-                            <MarkPaid p={p} methods={methods} />
-                            <PayableForm cats={cats} methods={methods} p={p} />
-                            <form action={cancelPayable}>
-                              <input type="hidden" name="id" value={p.id} />
-                              <InlineSubmit variant="danger" confirm="Cancel this payable?">Cancel</InlineSubmit>
-                            </form>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted">
-                            {p.status === "paid" ? formatDate(p.paid_date) : "—"}
-                          </span>
-                        )}
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {p.status === "unpaid" && (
+                            <>
+                              <MarkPaid p={p} methods={methods} />
+                              <PayableForm cats={cats} methods={methods} p={p} />
+                              <form action={cancelPayable}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <InlineSubmit variant="danger" confirm="Cancel this payable?">Cancel</InlineSubmit>
+                              </form>
+                            </>
+                          )}
+                          <PayableAddForVendor cats={cats} methods={methods} p={p} />
+                        </div>
                       </TD>
                     )}
                   </TR>
@@ -108,25 +115,43 @@ export default async function PayablesPage() {
   );
 }
 
+/** Prefill for a brand-new payable (used to add another bill to an existing vendor). */
+interface PayableDefaults {
+  payee?: string;
+  category_id?: string | null;
+  payment_method_id?: string | null;
+}
+
 function PayableForm({
-  cats, methods, p,
+  cats, methods, p, defaults, trigger,
 }: {
   cats: Category[];
   methods: PaymentMethod[];
-  p?: Payable;
+  p?: Payable;                 // present = edit existing
+  defaults?: PayableDefaults;  // present (with no p) = new payable, pre-filled
+  trigger?: { label: string; variant?: "primary" | "secondary" };
 }) {
+  // Edit uses the existing row; a new payable falls back to any prefilled defaults.
+  const payee = p?.payee ?? defaults?.payee ?? "";
+  const categoryId = p?.category_id ?? defaults?.category_id ?? "";
+  const methodId = p?.payment_method_id ?? defaults?.payment_method_id ?? "";
+  const label = trigger?.label ?? (p ? "Edit" : "+ New Payable");
+  const variant = trigger?.variant ?? (p ? "secondary" : "primary");
+
   return (
     <FormDrawer
-      triggerLabel={p ? "Edit" : "+ New Payable"}
-      triggerVariant={p ? "secondary" : "primary"}
-      title={p ? "Edit Payable" : "New Payable"}
+      triggerLabel={label}
+      triggerVariant={variant}
+      title={p ? "Edit Payable" : defaults?.payee ? `New Payable — ${defaults.payee}` : "New Payable"}
       action={savePayable}
       submitLabel="Save Payable"
     >
       {p && <input type="hidden" name="id" value={p.id} />}
-      <Field label="Payee / Vendor" required><Input name="payee" defaultValue={p?.payee} required /></Field>
+      <Field label="Payee / Vendor" required>
+        <Input name="payee" defaultValue={payee} list="payable-vendors" required />
+      </Field>
       <Field label="Category">
-        <Select name="category_id" defaultValue={p?.category_id ?? ""}>
+        <Select name="category_id" defaultValue={categoryId}>
           <option value="">—</option>
           {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
@@ -137,13 +162,31 @@ function PayableForm({
         <Field label="Due Date" required><Input type="date" name="due_date" defaultValue={p?.due_date ?? todayISO()} required /></Field>
       </div>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue={p?.payment_method_id ?? ""}>
+        <Select name="payment_method_id" defaultValue={methodId}>
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </Select>
       </Field>
       <Field label="Notes"><Textarea name="notes" defaultValue={p?.notes ?? ""} /></Field>
     </FormDrawer>
+  );
+}
+
+/** Quick "+ Add" that opens a new payable pre-filled with this vendor's details. */
+function PayableAddForVendor({
+  cats, methods, p,
+}: {
+  cats: Category[];
+  methods: PaymentMethod[];
+  p: Payable;
+}) {
+  return (
+    <PayableForm
+      cats={cats}
+      methods={methods}
+      defaults={{ payee: p.payee, category_id: p.category_id, payment_method_id: p.payment_method_id }}
+      trigger={{ label: "+ Add", variant: "secondary" }}
+    />
   );
 }
 
