@@ -148,6 +148,17 @@ export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<Ac
   }
 }
 
+/** Persist a new drag-and-drop order for bank accounts. */
+export async function reorderBankAccounts(orderedIds: string[]): Promise<void> {
+  await requireFinance();
+  const supabase = await createClient();
+  await Promise.all(
+    orderedIds.map((id, i) => supabase.from("bank_accounts").update({ sort_order: i }).eq("id", id)),
+  );
+  revalidatePath("/settings/bank-accounts");
+  revalidatePath("/dashboard");
+}
+
 export async function saveUserAccess(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     await requireFinance();

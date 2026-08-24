@@ -23,6 +23,7 @@ export async function getBankAccounts(): Promise<BankAccount[]> {
   const { data } = await supabase
     .from("bank_accounts")
     .select("*")
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("account_name");
   return (data ?? []) as BankAccount[];
 }
