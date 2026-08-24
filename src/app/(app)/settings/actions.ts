@@ -107,7 +107,7 @@ export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<Ac
     const summary = results
       .map((r) =>
         r.status === "ok"
-          ? `${r.provider} ✓ ${formatMYR(r.balance ?? 0)}`
+          ? `${r.provider} ✓ ${formatMYR(r.balance ?? 0)}${r.detail ? ` ${r.detail}` : ""}`
           : r.status === "skipped"
             ? `${r.provider}: not configured`
             : `${r.provider} ⚠ ${r.error}`,

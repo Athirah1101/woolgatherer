@@ -9,17 +9,18 @@ export interface ProviderResult {
   status: "ok" | "error" | "skipped";
   balance?: number;
   error?: string;
+  detail?: string;
 }
 
 async function run(
   provider: string,
   configured: boolean,
-  fn: () => Promise<{ balance: number }>,
+  fn: () => Promise<{ balance: number; detail?: string }>,
 ): Promise<ProviderResult> {
   if (!configured) return { provider, status: "skipped" };
   try {
-    const { balance } = await fn();
-    return { provider, status: "ok", balance };
+    const { balance, detail } = await fn();
+    return { provider, status: "ok", balance, detail };
   } catch (e) {
     return { provider, status: "error", error: (e as Error).message };
   }

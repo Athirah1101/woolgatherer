@@ -49,6 +49,7 @@ export interface AirwallexSyncResult {
   available: number;
   pending: number;
   asOf: string;
+  detail?: string;
 }
 
 /**
@@ -78,5 +79,7 @@ export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
   // omits total_amount for some accounts, which dropped the reserved portion).
   const balance = myr.total_amount != null ? toNum(myr.total_amount) : available + pending + reserved;
   const asOf = await writeBankBalance(AIRWALLEX_ACCOUNT_NAME, balance);
-  return { balance, available, pending, asOf };
+  // Temporary diagnostic: the raw MYR balance object, so we can see exactly
+  // which field carries the ~RM5.75 difference vs the dashboard.
+  return { balance, available, pending, asOf, detail: `raw=${JSON.stringify(myr)}` };
 }
