@@ -9,8 +9,17 @@ import { Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/compon
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
+import { SortControl, type SortOption } from "@/components/SortControl";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
 import { FrequencyFields } from "./FrequencyFields";
+
+const RULE_SORTS: SortOption[] = [
+  { value: "name_az", label: "Name (A → Z)" },
+  { value: "name_za", label: "Name (Z → A)" },
+  { value: "amount_desc", label: "Amount (high → low)" },
+  { value: "amount_asc", label: "Amount (low → high)" },
+  { value: "due_day", label: "Due day" },
+];
 
 const MONTH_ABBR = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -30,13 +39,29 @@ function annualAmount(r: RecurringPayable): number {
   return r.default_amount * perYear;
 }
 
-export default async function RecurringPage() {
+export default async function RecurringPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   await requireRole("finance");
-  const [rules, cats, methods] = await Promise.all([
+  const sp = await searchParams;
+  const [allRules, cats, methods] = await Promise.all([
     getRecurringRules(),
     getCategories("payable"),
     getPaymentMethods(),
   ]);
+
+  const sort = RULE_SORTS.some((s) => s.value === sp.sort) ? sp.sort! : "name_az";
+  const rules = [...allRules].sort((a, b) => {
+    switch (sort) {
+      case "name_za": return b.name.localeCompare(a.name);
+      case "amount_desc": return b.default_amount - a.default_amount;
+      case "amount_asc": return a.default_amount - b.default_amount;
+      case "due_day": return a.due_day - b.due_day;
+      default: return a.name.localeCompare(b.name);
+    }
+  });
 
   // ---- Overview / forecast ----
   const today = todayISO();
@@ -70,6 +95,12 @@ export default async function RecurringPage() {
         <SummaryCard label="Due This Month" value={formatMYR(dueThisMonth)} tone="amber" sub="What these rules bill this month" />
         <SummaryCard label="Active Rules" value={activeRules.length} tone="green" sub={`${rules.length} total`} />
       </div>
+
+      {rules.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <SortControl options={RULE_SORTS} />
+        </div>
+      )}
 
       {rules.length === 0 ? (
         <EmptyState

@@ -11,6 +11,7 @@ import { Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } 
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
+import { SortControl, type SortOption } from "@/components/SortControl";
 import { cancelPayable, markPayablePaid, savePayable } from "./actions";
 
 export default async function PayablesPage({
@@ -41,13 +42,33 @@ export default async function PayablesPage({
   // ---- View filter: default hides paid so the list stays short ----
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
   const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
-  const shown =
+  const filtered =
     view === "all" ? rows : rows.filter((r) => r.payable.status === view);
   const VIEWS: { key: string; label: string; count: number }[] = [
     { key: "unpaid", label: "To Pay", count: unpaid.length },
     { key: "paid", label: "Paid", count: paidCount },
     { key: "all", label: "All", count: rows.length },
   ];
+
+  // Sort
+  const SORTS: SortOption[] = [
+    { value: "due_asc", label: "Due date (soonest)" },
+    { value: "due_desc", label: "Due date (latest)" },
+    { value: "amount_desc", label: "Amount (high → low)" },
+    { value: "amount_asc", label: "Amount (low → high)" },
+    { value: "payee_az", label: "Payee (A → Z)" },
+  ];
+  const sort = SORTS.some((s) => s.value === sp.sort) ? sp.sort! : "due_asc";
+  const shown = [...filtered].sort((a, b) => {
+    const pa = a.payable, pb = b.payable;
+    switch (sort) {
+      case "due_desc": return (pb.due_date ?? "").localeCompare(pa.due_date ?? "");
+      case "amount_desc": return pb.amount - pa.amount;
+      case "amount_asc": return pa.amount - pb.amount;
+      case "payee_az": return (pa.payee ?? "").localeCompare(pb.payee ?? "");
+      default: return (pa.due_date ?? "").localeCompare(pb.due_date ?? "");
+    }
+  });
 
   // Distinct vendor names, for the payee auto-complete list.
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
@@ -83,19 +104,22 @@ export default async function PayablesPage({
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {VIEWS.map((v) => (
-          <Link
-            key={v.key}
-            href={v.key === "unpaid" ? "/payables" : `/payables?view=${v.key}`}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium transition",
-              view === v.key ? "bg-brand text-white" : "border border-border bg-surface hover:bg-gray-50",
-            )}
-          >
-            {v.label} <span className="opacity-70">({v.count})</span>
-          </Link>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {VIEWS.map((v) => (
+            <Link
+              key={v.key}
+              href={v.key === "unpaid" ? "/payables" : `/payables?view=${v.key}`}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                view === v.key ? "bg-brand text-white" : "border border-border bg-surface hover:bg-gray-50",
+              )}
+            >
+              {v.label} <span className="opacity-70">({v.count})</span>
+            </Link>
+          ))}
+        </div>
+        <SortControl options={SORTS} />
       </div>
 
       {rows.length === 0 ? (
