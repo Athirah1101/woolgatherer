@@ -83,6 +83,5 @@ export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
   const available = myrLines.reduce((sum, l) => sum + toNum(l.available_amount), 0);
   const pending = myrLines.reduce((sum, l) => sum + toNum(l.pending_amount), 0);
   const asOf = await writeBankBalance(AIRWALLEX_ACCOUNT_NAME, balance);
-  // Temporary diagnostic: the full balances array, so we can see every MYR line.
-  return { balance, available, pending, asOf, detail: `all=${JSON.stringify(lines)}` };
+  return { balance, available, pending, asOf };
 }
