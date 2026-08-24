@@ -6,10 +6,20 @@ import { saveRefundCase } from "./actions";
 import { recordRefund } from "../hrdc/actions";
 import type { PaymentMethod } from "@/lib/types";
 
+export const REFUND_TYPES: { value: string; label: string }[] = [
+  { value: "hrdc", label: "HRDC" },
+  { value: "deposit", label: "Refundable Deposit" },
+  { value: "changed_mind", label: "Client Changed Mind" },
+  { value: "other", label: "Other" },
+];
+export const refundTypeLabel = (v: string | null | undefined) =>
+  REFUND_TYPES.find((t) => t.value === v)?.label ?? "Other";
+
 interface CaseDefaults {
   id?: string;
   client_name?: string;
   notes?: string | null;
+  refund_type?: string | null;
   amount_client_paid?: number | null;
   claim_amount?: number | null;
   hrdc_received_date?: string | null;
@@ -35,14 +45,23 @@ export function RefundCaseForm({
       triggerLabel={trigger}
       triggerVariant={isEdit ? "secondary" : "primary"}
       title={isEdit ? "Edit Refund Case" : "New Refund Case"}
-      description="Track a client refund arising from an HRDC claim."
+      description="Track any client refund — HRDC, deposits, changed-mind, and more."
       action={saveRefundCase}
       submitLabel={isEdit ? "Save Changes" : "Create Case"}
     >
       {defaults?.id && <input type="hidden" name="id" value={defaults.id} />}
-      <Field label="Client Name" required>
-        <Input name="client_name" defaultValue={defaults?.client_name ?? ""} required />
-      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Client Name" required>
+          <Input name="client_name" defaultValue={defaults?.client_name ?? ""} required />
+        </Field>
+        <Field label="Refund Type" required>
+          <Select name="refund_type" defaultValue={defaults?.refund_type ?? "hrdc"}>
+            {REFUND_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </Select>
+        </Field>
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Amount They Paid" hint="What the client paid us up front.">
           <MoneyInput name="amount_client_paid" defaultValue={num(defaults?.amount_client_paid)} />

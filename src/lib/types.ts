@@ -157,6 +157,7 @@ export interface HrdcClaim {
   hrdc_amount_received: number | null;
   hrdc_received_date: string | null;
   refund_amount_due: number | null;
+  refund_type: string;
   grant_application_date: string | null;
   grant_reference: string | null;
   grant_approval_date: string | null;

@@ -224,6 +224,7 @@ function baseClaim(over: Partial<HrdcClaim> = {}): HrdcClaim {
     contact_name: null,
     product: null,
     sales_pic: null,
+    refund_type: "hrdc",
     amount_client_paid: null,
     claim_amount: null,
     approved_amount: null,

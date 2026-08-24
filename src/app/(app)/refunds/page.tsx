@@ -1,26 +1,38 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getHrdcRows } from "@/lib/data/hrdc";
 import { getPaymentMethods } from "@/lib/data/refs";
 import {
-  AttentionBadge, Card, EmptyState, PageHeader, SectionTitle, StatusChip,
+  AttentionBadge, Card, Chip, EmptyState, PageHeader, SectionTitle, StatusChip,
   SummaryCard, Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { refundStatusChip, refundColorTone } from "@/lib/finance/display";
 import { SinceTimer } from "./SinceTimer";
-import { RefundCaseForm, RecordRefundForm } from "./RefundForms";
+import { RefundCaseForm, RecordRefundForm, REFUND_TYPES, refundTypeLabel } from "./RefundForms";
 
-export default async function RefundsPage() {
+export default async function RefundsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
+  const sp = await searchParams;
 
   const [rows, methods] = await Promise.all([getHrdcRows(), getPaymentMethods()]);
 
-  // A refund case is anything where HRD Corp funds have been received.
-  const cases = rows.filter((r) => r.claim.hrdc_received_date);
-  // Active = money received but not yet fully refunded — these get a live timer.
-  const active = cases.filter((r) => r.refund.remaining > 0);
+  // A refund case = any record with a refund owed (any type) or HRD funds received.
+  const allCases = rows.filter(
+    (r) => r.claim.hrdc_received_date || (r.claim.refund_amount_due ?? 0) > 0,
+  );
+
+  const typeFilter = REFUND_TYPES.some((t) => t.value === sp.type) ? sp.type : "all";
+  const cases = typeFilter === "all" ? allCases : allCases.filter((r) => r.claim.refund_type === typeFilter);
+
+  // Active = HRDC funds received but not yet fully refunded — these get a live timer.
+  const active = cases.filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0);
 
   const totalRemaining = sumMoney(cases.map((r) => r.refund.remaining));
   const totalRefunded = sumMoney(cases.map((r) => r.refund.refunded));
@@ -31,13 +43,32 @@ export default async function RefundsPage() {
     <div>
       <PageHeader
         title="Refunds"
-        subtitle="When to pay clients back — the 30-day clock runs from the day HRD Corp funds land."
+        subtitle="Money owed back to clients — HRDC, deposits, changed-mind and more. HRDC refunds carry the 30-day clock."
         actions={
           isFinance ? (
             <RefundCaseForm trigger="+ New Refund Case" />
           ) : undefined
         }
       />
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {[{ value: "all", label: "All" }, ...REFUND_TYPES].map((t) => {
+          const count =
+            t.value === "all" ? allCases.length : allCases.filter((r) => r.claim.refund_type === t.value).length;
+          return (
+            <Link
+              key={t.value}
+              href={t.value === "all" ? "/refunds" : `/refunds?type=${t.value}`}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                typeFilter === t.value ? "bg-brand text-white" : "border border-border bg-surface hover:bg-gray-50",
+              )}
+            >
+              {t.label} <span className="opacity-70">({count})</span>
+            </Link>
+          );
+        })}
+      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <SummaryCard label="Refund Remaining" value={formatMYR(totalRemaining)} tone="orange" />
@@ -51,11 +82,11 @@ export default async function RefundsPage() {
         <div className="lg:col-span-2">
           {cases.length === 0 ? (
             <EmptyState
-              title="No refund cases yet."
+              title="No refund cases here."
               message={
                 isFinance
-                  ? "Create a refund case once you receive HRD Corp funds for a client."
-                  : "Refund cases appear here once HRD Corp funds are received."
+                  ? "Add a refund case for any money owed back to a client — HRDC, a refundable deposit, a changed-mind refund, and more."
+                  : "Refund cases appear here once one is logged."
               }
             />
           ) : (
@@ -64,6 +95,7 @@ export default async function RefundsPage() {
                 <THead>
                   <TR>
                     <TH>Client</TH>
+                    <TH>Type</TH>
                     <TH right>Paid</TH>
                     <TH right>Claimed</TH>
                     <TH>HRDF Received</TH>
@@ -80,6 +112,7 @@ export default async function RefundsPage() {
                     return (
                       <TR key={r.claim.id}>
                         <TD className="font-medium">{r.claim.client_name}</TD>
+                        <TD><Chip tone={r.claim.refund_type === "hrdc" ? "indigo" : "gray"}>{refundTypeLabel(r.claim.refund_type)}</Chip></TD>
                         <TD right>{r.claim.amount_client_paid != null ? formatMYR(r.claim.amount_client_paid) : "—"}</TD>
                         <TD right>{r.claim.claim_amount != null ? formatMYR(r.claim.claim_amount) : "—"}</TD>
                         <TD className="text-muted">{formatDate(r.claim.hrdc_received_date)}</TD>
@@ -105,6 +138,7 @@ export default async function RefundsPage() {
                                   id: r.claim.id,
                                   client_name: r.claim.client_name,
                                   notes: r.claim.notes,
+                                  refund_type: r.claim.refund_type,
                                   amount_client_paid: r.claim.amount_client_paid,
                                   claim_amount: r.claim.claim_amount,
                                   hrdc_received_date: r.claim.hrdc_received_date,

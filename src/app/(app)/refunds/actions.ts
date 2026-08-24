@@ -38,6 +38,7 @@ export async function saveRefundCase(_: ActionState, fd: FormData): Promise<Acti
     const payload = {
       client_name,
       notes: d(fd, "notes"),
+      refund_type: s(fd, "refund_type") || "hrdc",
       amount_client_paid: numN(fd, "amount_client_paid"),
       claim_amount,
       hrdc_received_date: received,
