@@ -7,13 +7,16 @@
 // integers; our bank_accounts.current_balance is stored in ringgit, so we
 // convert with fromSen().
 
-import { createAdminClient } from "@/lib/supabase/admin";
 import { fromSen } from "@/lib/finance/money";
-import { todayISO } from "@/lib/finance/dates";
+import { writeBankBalance } from "./bank-sync";
 
 /** Which bank account (by name) the Stripe balance is written to. */
 const STRIPE_ACCOUNT_NAME = "Stripe";
 const STRIPE_CURRENCY = "myr";
+
+export function stripeConfigured(): boolean {
+  return Boolean(process.env.STRIPE_SECRET_KEY);
+}
 
 interface StripeBalanceLine {
   amount: number;
@@ -65,21 +68,7 @@ async function fetchStripeMyrBalanceSen(): Promise<{ available: number; pending:
  */
 export async function syncStripeBalance(): Promise<StripeSyncResult> {
   const { available: availSen, pending: pendSen } = await fetchStripeMyrBalanceSen();
-  const totalSen = availSen + pendSen;
-
-  const balance = fromSen(totalSen);
-  const asOf = todayISO();
-
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("bank_accounts")
-    .update({ current_balance: balance, balance_as_of: asOf })
-    .ilike("account_name", STRIPE_ACCOUNT_NAME)
-    .select("id");
-  if (error) throw new Error(`Could not update Stripe account: ${error.message}`);
-  if (!data || data.length === 0) {
-    throw new Error(`No bank account named "${STRIPE_ACCOUNT_NAME}" was found.`);
-  }
-
+  const balance = fromSen(availSen + pendSen);
+  const asOf = await writeBankBalance(STRIPE_ACCOUNT_NAME, balance);
   return { balance, available: fromSen(availSen), pending: fromSen(pendSen), asOf };
 }

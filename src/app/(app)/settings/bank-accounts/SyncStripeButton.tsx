@@ -2,22 +2,22 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { buttonClass } from "@/components/ui";
-import { syncStripeBalanceNow } from "../actions";
+import { syncBalancesNow } from "../actions";
 
-/** One-click pull of the latest Stripe MYR balance, with inline feedback. */
-export function SyncStripeButton() {
-  const [state, action, pending] = useActionState(syncStripeBalanceNow, null);
+/** One-click pull of the latest balances from every configured provider. */
+export function SyncBalancesButton() {
+  const [state, action, pending] = useActionState(syncBalancesNow, null);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state?.ok) setMsg("✓ Stripe balance updated");
+    if (state?.ok) setMsg("✓ Balances updated");
     else if (state?.error) setMsg(`⚠ ${state.error}`);
   }, [state]);
 
   return (
     <form action={action} className="flex items-center gap-2">
       <button type="submit" disabled={pending} className={buttonClass("secondary")}>
-        {pending ? "Syncing…" : "Sync Stripe now"}
+        {pending ? "Syncing…" : "Sync balances now"}
       </button>
       {msg && (
         <span className={state?.ok ? "text-sm text-emerald-600" : "text-sm text-red-600"}>

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
-import { syncStripeBalance } from "@/lib/integrations/stripe";
+import { syncAllBalances } from "@/lib/integrations/balances";
 import { formatMYR } from "@/lib/finance/money";
 
 async function requireFinance() {
@@ -96,22 +96,35 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
   }
 }
 
-/** Manually pull the latest Stripe MYR balance into the "Stripe" bank account. */
-export async function syncStripeBalanceNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+/** Manually pull the latest balances from every configured provider. */
+export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<ActionState> {
   try {
     const session = await requireFinance();
-    const result = await syncStripeBalance();
-    const supabase = await createClient();
-    await logActivity(supabase, {
-      entity_type: "bank_account",
-      entity_id: null,
-      action: "stripe_synced",
-      actor: session.userId,
-      summary: `Stripe balance synced: ${formatMYR(result.balance)} (as of ${result.asOf})`,
-    });
-    revalidatePath("/settings/bank-accounts");
-    revalidatePath("/dashboard");
-    revalidatePath("/cashflow");
+    const results = await syncAllBalances();
+
+    const done = results.filter((r) => r.status === "ok");
+    const failed = results.filter((r) => r.status === "error");
+
+    if (done.length) {
+      const supabase = await createClient();
+      await logActivity(supabase, {
+        entity_type: "bank_account",
+        entity_id: null,
+        action: "balances_synced",
+        actor: session.userId,
+        summary: done.map((r) => `${r.provider} ${formatMYR(r.balance ?? 0)}`).join(", "),
+      });
+      revalidatePath("/settings/bank-accounts");
+      revalidatePath("/dashboard");
+      revalidatePath("/cashflow");
+    }
+
+    if (failed.length) {
+      return { error: failed.map((r) => `${r.provider}: ${r.error}`).join(" · ") };
+    }
+    if (!done.length) {
+      return { error: "No providers are configured yet — add the API keys in Vercel." };
+    }
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };

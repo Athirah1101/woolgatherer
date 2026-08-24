@@ -31,10 +31,12 @@ For any server-side admin scripts you add later, get the **service-role** key fr
 The daily Stripe → Bank Accounts sync (`/api/cron/stripe-balance`, `vercel.json` cron) needs these set in the deployment environment (Vercel → Project → Settings → Environment Variables, Production). **Never** prefix these with `NEXT_PUBLIC_` and never commit them:
 ```
 STRIPE_SECRET_KEY=          # a Stripe RESTRICTED key with "Balance: read" only
+AIRWALLEX_CLIENT_ID=        # Airwallex → Account settings → API keys → Client ID
+AIRWALLEX_API_KEY=          # Airwallex → Account settings → API keys → API key
 SUPABASE_SERVICE_ROLE_KEY=  # Supabase dashboard → Project Settings → API → service_role
 CRON_SECRET=                # any long random string; Vercel sends it to authorize the cron
 ```
-The job reads the Stripe MYR balance (available + pending), converts sen→ringgit, and writes it to the bank account named "Stripe". Change `STRIPE_ACCOUNT_NAME` / balance formula in `src/lib/integrations/stripe.ts` if needed.
+The daily job (`src/lib/integrations/balances.ts`) syncs every provider whose keys are set — a provider with no keys is skipped, not an error. Each writes its MYR balance (available + pending) to the bank account matching its name ("Stripe", "Airwallex"). Stripe amounts are sen (converted with fromSen); Airwallex amounts are already ringgit. To add another provider, drop a module in `src/lib/integrations/` and register it in `balances.ts`.
 
 ## Deploy
 Currently on Vercel (project `finance-os`, team `athirah1101s-projects`), deployed via `npx vercel --prod`.

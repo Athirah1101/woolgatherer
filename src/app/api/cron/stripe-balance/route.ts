@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { syncStripeBalance } from "@/lib/integrations/stripe";
+import { syncAllBalances } from "@/lib/integrations/balances";
 
-// Runs daily via Vercel Cron (see vercel.json). Vercel sends
+// Runs daily via Vercel Cron (see vercel.json). Syncs every configured bank
+// balance provider (Stripe, Airwallex, …). Vercel sends
 // `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set, which we
 // verify so the endpoint can't be triggered by anyone else.
 export const dynamic = "force-dynamic";
@@ -16,10 +17,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const result = await syncStripeBalance();
-    return NextResponse.json({ ok: true, ...result });
-  } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
-  }
+  const results = await syncAllBalances();
+  const anyError = results.some((r) => r.status === "error");
+  return NextResponse.json({ ok: !anyError, results }, { status: anyError ? 500 : 200 });
 }
