@@ -58,6 +58,9 @@ export async function savePayable(_: ActionState, fd: FormData): Promise<ActionS
   }
 }
 
+/** The payment method whose spending must be paid back to a person. */
+const PAYBACK_METHOD = "Joseph Chua";
+
 export async function markPayablePaid(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const session = await financeGuard();
@@ -65,13 +68,14 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     const id = s(fd, "id");
     if (!id) return { error: "Missing payable" };
     const paid_amount = n(fd, "paid_amount");
+    const method_id = s(fd, "payment_method_id") || null;
     const { error } = await supabase
       .from("payables")
       .update({
         status: "paid",
         paid_date: s(fd, "paid_date") || todayISO(),
         paid_amount,
-        payment_method_id: s(fd, "payment_method_id") || null,
+        payment_method_id: method_id,
         reference: s(fd, "reference") || null,
       })
       .eq("id", id);
@@ -80,11 +84,48 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
       entity_type: "payable", entity_id: id, action: "marked_paid",
       actor: session.userId, summary: `Paid ${formatMYR(paid_amount)}`,
     });
+
+    // If this was paid via the "Joseph Chua" method, we now owe Joseph Chua
+    // that amount — auto-create a payable to him so the debt is tracked.
+    await maybeCreatePayback(supabase, session.userId, id, method_id, paid_amount);
+
     refresh();
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+async function maybeCreatePayback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  payableId: string,
+  methodId: string | null,
+  amount: number,
+) {
+  if (!methodId || amount <= 0) return;
+  const { data: method } = await supabase
+    .from("payment_methods").select("name").eq("id", methodId).single();
+  if (!method || method.name?.toLowerCase() !== PAYBACK_METHOD.toLowerCase()) return;
+
+  const { data: original } = await supabase
+    .from("payables").select("payee").eq("id", payableId).single();
+  // Don't create a payback for a payback (avoid a loop).
+  if (original?.payee?.toLowerCase() === PAYBACK_METHOD.toLowerCase()) return;
+
+  await supabase.from("payables").insert({
+    payee: PAYBACK_METHOD,
+    description: `Payback — paid ${original?.payee ?? "an expense"} via ${PAYBACK_METHOD}`,
+    amount,
+    due_date: todayISO(),
+    status: "unpaid",
+    is_payback: true,
+    source_payable_id: payableId,
+  });
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: null, action: "payback_created",
+    actor: userId, summary: `Owe ${PAYBACK_METHOD} ${formatMYR(amount)}`,
+  });
 }
 
 export async function cancelPayable(fd: FormData): Promise<void> {

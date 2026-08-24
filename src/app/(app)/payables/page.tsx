@@ -31,6 +31,13 @@ export default async function PayablesPage({
   const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount));
   const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount));
 
+  // Running total still owed to Joseph Chua (unpaid paybacks to him).
+  const owedJoseph = sumMoney(
+    rows
+      .filter((r) => r.payable.status === "unpaid" && r.payable.payee?.toLowerCase() === "joseph chua")
+      .map((r) => r.payable.amount),
+  );
+
   // ---- View filter: default hides paid so the list stays short ----
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
   const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
@@ -64,6 +71,17 @@ export default async function PayablesPage({
         <SummaryCard label="Due Within 3 Days" value={formatMYR(due3)} tone="amber" />
         <SummaryCard label="Due Within 7 Days" value={formatMYR(due7)} tone="blue" />
       </div>
+
+      {owedJoseph > 0 && (
+        <div className="mb-6 max-w-sm">
+          <SummaryCard
+            label="Owed to Joseph Chua"
+            value={formatMYR(owedJoseph)}
+            tone="indigo"
+            sub="Total still to repay for spending via the Joseph Chua method"
+          />
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {VIEWS.map((v) => (
