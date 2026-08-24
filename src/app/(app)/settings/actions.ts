@@ -102,29 +102,44 @@ export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<Ac
     const session = await requireFinance();
     const results = await syncAllBalances();
 
-    const done = results.filter((r) => r.status === "ok");
-    const failed = results.filter((r) => r.status === "error");
+    // Human summary of EVERY provider (ok / error / not configured) — shown in
+    // the UI and written to the audit log so issues are diagnosable.
+    const summary = results
+      .map((r) =>
+        r.status === "ok"
+          ? `${r.provider} ✓ ${formatMYR(r.balance ?? 0)}`
+          : r.status === "skipped"
+            ? `${r.provider}: not configured`
+            : `${r.provider} ⚠ ${r.error}`,
+      )
+      .join("  ·  ");
 
-    if (done.length) {
+    const anyOk = results.some((r) => r.status === "ok");
+    const anyProblem = results.some((r) => r.status !== "ok");
+
+    // Best-effort audit log — never let logging break the sync result.
+    try {
       const supabase = await createClient();
       await logActivity(supabase, {
         entity_type: "bank_account",
         entity_id: null,
         action: "balances_synced",
         actor: session.userId,
-        summary: done.map((r) => `${r.provider} ${formatMYR(r.balance ?? 0)}`).join(", "),
+        summary,
       });
+    } catch {
+      /* ignore logging failures */
+    }
+
+    if (anyOk) {
       revalidatePath("/settings/bank-accounts");
       revalidatePath("/dashboard");
       revalidatePath("/cashflow");
     }
 
-    if (failed.length) {
-      return { error: failed.map((r) => `${r.provider}: ${r.error}`).join(" · ") };
-    }
-    if (!done.length) {
-      return { error: "No providers are configured yet — add the API keys in Vercel." };
-    }
+    // Show the full per-provider summary whenever anything isn't OK, so the
+    // exact culprit (bad key, wrong currency, missing config) is visible.
+    if (anyProblem) return { error: summary };
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
