@@ -6,6 +6,7 @@ import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { sumMoney } from "@/lib/finance/money";
 import { saveBankAccount } from "../actions";
+import { SyncStripeButton } from "./SyncStripeButton";
 
 function BankForm({
   acc,
@@ -56,8 +57,13 @@ export default async function BankAccountsPage() {
     <div>
       <PageHeader
         title="Bank Accounts"
-        subtitle="Current Cash on the Dashboard aggregates active accounts."
-        actions={<BankForm />}
+        subtitle="Current Cash on the Dashboard aggregates active accounts. Stripe (MYR) updates automatically each day."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <SyncStripeButton />
+            <BankForm />
+          </div>
+        }
       />
       <div className="mb-6 max-w-xs">
         <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />

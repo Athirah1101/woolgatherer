@@ -27,6 +27,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_GDfzTCmSSvBwpeKvfuwoZg_DA0F04f8
 ```
 For any server-side admin scripts you add later, get the **service-role** key from the Supabase dashboard — never commit that one.
 
+### Server-only secrets (Stripe balance sync)
+The daily Stripe → Bank Accounts sync (`/api/cron/stripe-balance`, `vercel.json` cron) needs these set in the deployment environment (Vercel → Project → Settings → Environment Variables, Production). **Never** prefix these with `NEXT_PUBLIC_` and never commit them:
+```
+STRIPE_SECRET_KEY=          # a Stripe RESTRICTED key with "Balance: read" only
+SUPABASE_SERVICE_ROLE_KEY=  # Supabase dashboard → Project Settings → API → service_role
+CRON_SECRET=                # any long random string; Vercel sends it to authorize the cron
+```
+The job reads the Stripe MYR balance (available + pending), converts sen→ringgit, and writes it to the bank account named "Stripe". Change `STRIPE_ACCOUNT_NAME` / balance formula in `src/lib/integrations/stripe.ts` if needed.
+
 ## Deploy
 Currently on Vercel (project `finance-os`, team `athirah1101s-projects`), deployed via `npx vercel --prod`.
 - Functions are pinned to **Seoul (`icn1`)** in `vercel.json` to co-locate with the Supabase DB (ap-northeast-2). Keep them in the same region.

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
+import { syncStripeBalance } from "@/lib/integrations/stripe";
+import { formatMYR } from "@/lib/finance/money";
 
 async function requireFinance() {
   const session = await getSession();
@@ -84,6 +86,28 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
       action: id ? "updated" : "created",
       actor: session.userId,
       summary: `${name} balance ${payload.current_balance}`,
+    });
+    revalidatePath("/settings/bank-accounts");
+    revalidatePath("/dashboard");
+    revalidatePath("/cashflow");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** Manually pull the latest Stripe MYR balance into the "Stripe" bank account. */
+export async function syncStripeBalanceNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+  try {
+    const session = await requireFinance();
+    const result = await syncStripeBalance();
+    const supabase = await createClient();
+    await logActivity(supabase, {
+      entity_type: "bank_account",
+      entity_id: null,
+      action: "stripe_synced",
+      actor: session.userId,
+      summary: `Stripe balance synced: ${formatMYR(result.balance)} (as of ${result.asOf})`,
     });
     revalidatePath("/settings/bank-accounts");
     revalidatePath("/dashboard");
