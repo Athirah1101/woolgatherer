@@ -10,7 +10,8 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { refundStatusChip, refundColorTone } from "@/lib/finance/display";
 import { SinceTimer } from "./SinceTimer";
-import { RefundCaseForm, RecordRefundForm, REFUND_TYPES, refundTypeLabel } from "./RefundForms";
+import { RefundCaseForm, RecordRefundForm } from "./RefundForms";
+import { REFUND_TYPES, refundTypeLabel } from "./refundTypes";
 
 export default async function RefundsPage({
   searchParams,

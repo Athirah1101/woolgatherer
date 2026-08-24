@@ -4,16 +4,8 @@ import { FormDrawer, Field, Input, MoneyInput, Textarea, DateWithToday } from "@
 import { Select } from "@/components/form";
 import { saveRefundCase } from "./actions";
 import { recordRefund } from "../hrdc/actions";
+import { REFUND_TYPES } from "./refundTypes";
 import type { PaymentMethod } from "@/lib/types";
-
-export const REFUND_TYPES: { value: string; label: string }[] = [
-  { value: "hrdc", label: "HRDC" },
-  { value: "deposit", label: "Refundable Deposit" },
-  { value: "changed_mind", label: "Client Changed Mind" },
-  { value: "other", label: "Other" },
-];
-export const refundTypeLabel = (v: string | null | undefined) =>
-  REFUND_TYPES.find((t) => t.value === v)?.label ?? "Other";
 
 interface CaseDefaults {
   id?: string;
