@@ -68,18 +68,21 @@ export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
     throw new Error(`Airwallex balance error: ${msg}`);
   }
   const lines = (Array.isArray(body) ? body : []) as AirwallexBalanceLine[];
-  const myr = lines.find((l) => l.currency?.toUpperCase() === AIRWALLEX_CURRENCY);
-  if (!myr) throw new Error("No MYR balance found on the Airwallex account.");
+  const myrLines = lines.filter((l) => l.currency?.toUpperCase() === AIRWALLEX_CURRENCY);
+  if (myrLines.length === 0) throw new Error("No MYR balance found on the Airwallex account.");
 
-  const available = toNum(myr.available_amount);
-  const pending = toNum(myr.pending_amount);
-  const reserved = toNum(myr.reserved_amount);
-  // Match the balance shown on the Airwallex dashboard: prefer their own
-  // `total_amount`, otherwise sum available + pending + reserved (the API
-  // omits total_amount for some accounts, which dropped the reserved portion).
-  const balance = myr.total_amount != null ? toNum(myr.total_amount) : available + pending + reserved;
+  // Sum across ALL MYR balance lines (Airwallex can return several per currency
+  // by account_type). Each line: prefer its total_amount, else available +
+  // pending + reserved. This matches the aggregate shown on the dashboard.
+  const lineTotal = (l: AirwallexBalanceLine) =>
+    l.total_amount != null
+      ? toNum(l.total_amount)
+      : toNum(l.available_amount) + toNum(l.pending_amount) + toNum(l.reserved_amount);
+
+  const balance = myrLines.reduce((sum, l) => sum + lineTotal(l), 0);
+  const available = myrLines.reduce((sum, l) => sum + toNum(l.available_amount), 0);
+  const pending = myrLines.reduce((sum, l) => sum + toNum(l.pending_amount), 0);
   const asOf = await writeBankBalance(AIRWALLEX_ACCOUNT_NAME, balance);
-  // Temporary diagnostic: the raw MYR balance object, so we can see exactly
-  // which field carries the ~RM5.75 difference vs the dashboard.
-  return { balance, available, pending, asOf, detail: `raw=${JSON.stringify(myr)}` };
+  // Temporary diagnostic: the full balances array, so we can see every MYR line.
+  return { balance, available, pending, asOf, detail: `all=${JSON.stringify(lines)}` };
 }
