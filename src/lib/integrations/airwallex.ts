@@ -71,7 +71,10 @@ export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
 
   const available = toNum(myr.available_amount);
   const pending = toNum(myr.pending_amount);
-  const balance = available + pending;
+  // Use Airwallex's own `total_amount` (available + pending + reserved) so the
+  // figure matches the balance shown on the Airwallex dashboard. Fall back to
+  // available + pending if the API omits total_amount.
+  const balance = myr.total_amount != null ? toNum(myr.total_amount) : available + pending;
   const asOf = await writeBankBalance(AIRWALLEX_ACCOUNT_NAME, balance);
   return { balance, available, pending, asOf };
 }
