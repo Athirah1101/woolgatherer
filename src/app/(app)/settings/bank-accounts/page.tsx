@@ -5,8 +5,10 @@ import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select } from "@/c
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { sumMoney } from "@/lib/finance/money";
+import { getCashHistory } from "@/lib/data/cashHistory";
 import { saveBankAccount } from "../actions";
 import { SyncBalancesButton } from "./SyncStripeButton";
+import { BankTrendChart } from "./BankTrendChart";
 
 function BankForm({
   acc,
@@ -50,7 +52,7 @@ function BankForm({
 
 export default async function BankAccountsPage() {
   await requireRole("finance");
-  const accounts = await getBankAccounts();
+  const [accounts, cashHistory] = await Promise.all([getBankAccounts(), getCashHistory()]);
   const total = sumMoney(accounts.filter((a) => a.active).map((a) => a.current_balance));
 
   return (
@@ -65,8 +67,13 @@ export default async function BankAccountsPage() {
           </div>
         }
       />
-      <div className="mb-6 max-w-xs">
-        <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />
+        </div>
+        <div className="lg:col-span-2">
+          <BankTrendChart points={cashHistory} />
+        </div>
       </div>
       {accounts.length === 0 ? (
         <EmptyState title="No bank accounts yet." message="Add an account and its current balance." action={<BankForm />} />

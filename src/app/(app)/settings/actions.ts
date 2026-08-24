@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { syncAllBalances } from "@/lib/integrations/balances";
 import { formatMYR } from "@/lib/finance/money";
+import { recordCashSnapshot } from "@/lib/data/cashHistory";
 
 async function requireFinance() {
   const session = await getSession();
@@ -87,6 +88,7 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
       actor: session.userId,
       summary: `${name} balance ${payload.current_balance}`,
     });
+    await recordCashSnapshot(supabase);
     revalidatePath("/settings/bank-accounts");
     revalidatePath("/dashboard");
     revalidatePath("/cashflow");
