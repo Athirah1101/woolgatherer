@@ -8,7 +8,7 @@ import type { ActionState } from "@/components/form";
 import type { RecurringPayable } from "@/lib/types";
 import { dueDatesForRule } from "@/lib/finance/payables";
 import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
-import { formatMYR, subMoney } from "@/lib/finance/money";
+import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 
@@ -69,33 +69,46 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     const supabase = await createClient();
     const id = s(fd, "id");
     if (!id) return { error: "Missing payable" };
-    const paid_amount = n(fd, "paid_amount");
+    const amountNow = n(fd, "paid_amount"); // amount paid in THIS transaction
     const method_id = s(fd, "payment_method_id") || null;
+    if (amountNow <= 0) return { error: "Enter the amount paid" };
+
+    // Accumulate onto any previous partial payments; mark paid only once the
+    // full amount is covered, otherwise "partially_paid".
+    const { data: cur } = await supabase
+      .from("payables").select("amount, paid_amount").eq("id", id).single();
+    const totalPaid = round2(Number(cur?.paid_amount ?? 0) + amountNow);
+    const fullyPaid = toSen(totalPaid) >= toSen(Number(cur?.amount ?? 0));
+
     const { error } = await supabase
       .from("payables")
       .update({
-        status: "paid",
+        status: fullyPaid ? "paid" : "partially_paid",
         paid_date: s(fd, "paid_date") || todayISO(),
-        paid_amount,
+        paid_amount: totalPaid,
         payment_method_id: method_id,
         reference: s(fd, "reference") || null,
       })
       .eq("id", id);
     if (error) return { error: error.message };
     await logActivity(supabase, {
-      entity_type: "payable", entity_id: id, action: "marked_paid",
-      actor: session.userId, summary: `Paid ${formatMYR(paid_amount)}`,
+      entity_type: "payable", entity_id: id, action: fullyPaid ? "marked_paid" : "partial_payment",
+      actor: session.userId,
+      summary: `${fullyPaid ? "Paid" : "Partial payment"} ${formatMYR(amountNow)}`,
     });
 
     // If this was paid via the "Joseph Chua" method, we now owe Joseph Chua
     // that amount — auto-create a payable to him so the debt is tracked.
-    await maybeCreatePayback(supabase, session.userId, id, method_id, paid_amount);
+    await maybeCreatePayback(supabase, session.userId, id, method_id, amountNow);
 
     // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account.
-    await maybeDeductFromBank(supabase, session.userId, method_id, paid_amount);
+    await maybeDeductFromBank(supabase, session.userId, method_id, amountNow);
 
+    const remaining = Math.max(0, round2(Number(cur?.amount ?? 0) - totalPaid));
     const { data: paid } = await supabase.from("payables").select("payee").eq("id", id).single();
-    await sendNotification("Payable marked paid", [`${paid?.payee ?? "Payable"} — ${formatMYR(paid_amount)}`]);
+    await sendNotification(fullyPaid ? "Payable paid" : "Payable partial payment", [
+      `${paid?.payee ?? "Payable"} — ${formatMYR(amountNow)} paid${fullyPaid ? "" : ` · ${formatMYR(remaining)} remaining`}`,
+    ]);
 
     refresh();
     return { ok: true };

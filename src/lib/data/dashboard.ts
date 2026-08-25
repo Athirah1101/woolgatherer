@@ -4,6 +4,7 @@ import { getHrdcRows } from "./hrdc";
 import { getBankAccounts } from "./refs";
 import { buildMovements } from "./cashflow";
 import { summarizeCashflow } from "@/lib/finance/cashflow";
+import { owedAmount } from "@/lib/finance/payables";
 import { sumMoney } from "@/lib/finance/money";
 import { formatMYR } from "@/lib/finance/money";
 import { daysUntil, endOfMonth, todayISO } from "@/lib/finance/dates";
@@ -53,13 +54,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     ),
   };
 
-  // Payables
-  const unpaid = payRows.filter((r) => r.payable.status === "unpaid");
+  // Payables (unpaid + partially paid; amounts are what's still owed)
+  const unpaid = payRows.filter((r) => r.payable.status === "unpaid" || r.payable.status === "partially_paid");
   const pay = {
-    overdue: sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => r.payable.amount)),
-    dueToday: sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => r.payable.amount)),
-    due3: sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount)),
-    due7: sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount)),
+    overdue: sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => owedAmount(r.payable))),
+    dueToday: sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => owedAmount(r.payable))),
+    due3: sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => owedAmount(r.payable))),
+    due7: sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => owedAmount(r.payable))),
   };
 
   // HRDC
@@ -96,7 +97,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         id: `pay-${r.payable.id}`,
         severity: a.level === "overdue" ? "critical" : a.level === "due_today" ? "high" : "medium",
         module: "payables",
-        title: `${r.payable.payee} ${formatMYR(r.payable.amount)} — ${a.text.toLowerCase()}`,
+        title: `${r.payable.payee} ${formatMYR(owedAmount(r.payable))} — ${a.text.toLowerCase()}`,
         href: `/payables`,
       });
     }

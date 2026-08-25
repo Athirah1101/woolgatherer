@@ -4,6 +4,7 @@ import type { Payable, ReceivablePayment } from "@/lib/types";
 import { getReceivableRows } from "./receivables";
 import { getHrdcRows } from "./hrdc";
 import { addDays } from "@/lib/finance/dates";
+import { subMoney } from "@/lib/finance/money";
 
 const HRDC_ESTIMATE_DAYS = 49; // ~7 weeks processing estimate (forecast only)
 
@@ -98,6 +99,20 @@ export async function buildMovements(): Promise<CashMovement[]> {
         date: p.due_date, direction: "out", actual: false, amount: p.amount,
         label: `${p.payee} — payable`, category: "payable", refType: "payable", refId: p.id,
       });
+    } else if (p.status === "partially_paid") {
+      // Actual out for what's been paid, plus expected out for the remainder.
+      const paid = p.paid_amount ?? 0;
+      const remaining = Math.max(0, subMoney(p.amount, paid));
+      if (paid > 0 && p.paid_date)
+        movements.push({
+          date: p.paid_date, direction: "out", actual: true, amount: paid,
+          label: `${p.payee} — part paid`, category: "payable", refType: "payable", refId: p.id,
+        });
+      if (remaining > 0)
+        movements.push({
+          date: p.due_date, direction: "out", actual: false, amount: remaining,
+          label: `${p.payee} — payable (balance)`, category: "payable", refType: "payable", refId: p.id,
+        });
     } else if (p.status === "paid" && p.paid_date) {
       movements.push({
         date: p.paid_date, direction: "out", actual: true, amount: p.paid_amount ?? p.amount,

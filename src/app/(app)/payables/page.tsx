@@ -11,6 +11,7 @@ import { DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Sele
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
+import { owedAmount } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
 import { SearchBox } from "@/components/SearchBox";
 import { cancelPayable, markPayablePaid, savePayable } from "./actions";
@@ -27,24 +28,28 @@ export default async function PayablesPage({
   const cats = await getCategories("payable");
   const methods = await getPaymentMethods();
 
-  const unpaid = rows.filter((r) => r.payable.status === "unpaid");
-  const overdue = sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => r.payable.amount));
-  const dueToday = sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => r.payable.amount));
-  const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => r.payable.amount));
-  const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => r.payable.amount));
+  // "Still owed" = unpaid or partially paid; metrics use the remaining amount.
+  const owing = (r: { payable: Payable }) =>
+    r.payable.status === "unpaid" || r.payable.status === "partially_paid";
+  const unpaid = rows.filter(owing);
+  const overdue = sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => owedAmount(r.payable)));
+  const dueToday = sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => owedAmount(r.payable)));
+  const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => owedAmount(r.payable)));
+  const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => owedAmount(r.payable)));
 
-  // Running total still owed to Joseph Chua (unpaid paybacks to him).
+  // Running total still owed to Joseph Chua (unpaid/partial paybacks to him).
   const owedJoseph = sumMoney(
     rows
-      .filter((r) => r.payable.status === "unpaid" && r.payable.payee?.toLowerCase() === "joseph chua")
-      .map((r) => r.payable.amount),
+      .filter((r) => owing(r) && r.payable.payee?.toLowerCase() === "joseph chua")
+      .map((r) => owedAmount(r.payable)),
   );
 
   // ---- View filter: default hides paid so the list stays short ----
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
   const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
   const q = (sp.q ?? "").trim().toLowerCase();
-  let filtered = view === "all" ? rows : rows.filter((r) => r.payable.status === view);
+  let filtered =
+    view === "all" ? rows : view === "paid" ? rows.filter((r) => r.payable.status === "paid") : rows.filter(owing);
   if (q)
     filtered = filtered.filter(
       (r) =>
@@ -168,18 +173,33 @@ export default async function PayablesPage({
                     </TD>
                     <TD className="text-muted">{categoryName(cats, p.category_id)}</TD>
                     <TD>{formatDate(p.due_date)}</TD>
-                    <TD right className="font-medium">{formatMYR(p.status === "paid" ? p.paid_amount ?? p.amount : p.amount)}</TD>
+                    <TD right className="font-medium">
+                      {formatMYR(p.status === "paid" ? p.paid_amount ?? p.amount : p.amount)}
+                      {p.status === "partially_paid" && (
+                        <div className="text-xs font-normal text-muted">
+                          {formatMYR(p.paid_amount ?? 0)} paid · {formatMYR(owedAmount(p))} left
+                        </div>
+                      )}
+                    </TD>
                     <TD>
                       <StatusChip
-                        label={p.status === "paid" ? "Paid" : p.status === "cancelled" ? "Cancelled" : "Unpaid"}
-                        tone={p.status === "paid" ? "green" : p.status === "cancelled" ? "gray" : "amber"}
+                        label={
+                          p.status === "paid" ? "Paid"
+                          : p.status === "partially_paid" ? "Partially Paid"
+                          : p.status === "cancelled" ? "Cancelled" : "Unpaid"
+                        }
+                        tone={
+                          p.status === "paid" ? "green"
+                          : p.status === "partially_paid" ? "blue"
+                          : p.status === "cancelled" ? "gray" : "amber"
+                        }
                       />
                     </TD>
                     <TD><AttentionBadge label={chip.label} tone={chip.tone} /></TD>
                     {isFinance && (
                       <TD right>
                         <div className="flex flex-wrap justify-end gap-1">
-                          {p.status === "unpaid" && (
+                          {(p.status === "unpaid" || p.status === "partially_paid") && (
                             <>
                               <MarkPaid p={p} methods={methods} />
                               <PayableForm cats={cats} methods={methods} p={p} />
@@ -280,17 +300,19 @@ function PayableAddForVendor({
 }
 
 function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
+  const remaining = owedAmount(p);
+  const partial = p.status === "partially_paid";
   return (
     <FormDrawer
-      triggerLabel="Mark Paid"
+      triggerLabel={partial ? "Record Payment" : "Mark Paid"}
       title="Record Payment"
-      description={`${p.payee} — due ${formatDate(p.due_date)}`}
+      description={`${p.payee} — ${formatMYR(remaining)} remaining${partial ? ` of ${formatMYR(p.amount)}` : ""}`}
       action={markPayablePaid}
-      submitLabel="Mark Paid"
+      submitLabel="Save Payment"
     >
       <input type="hidden" name="id" value={p.id} />
-      <Field label="Actual Amount Paid" required hint="For variable bills (EPF, utilities) enter the real amount.">
-        <MoneyInput name="paid_amount" defaultValue={p.amount} required />
+      <Field label="Amount Paid Now" required hint="Enter less than the amount remaining to record a partial payment.">
+        <MoneyInput name="paid_amount" defaultValue={remaining} required />
       </Field>
       <Field label="Paid Date" required><DateWithToday name="paid_date" defaultValue={todayISO()} required /></Field>
       <Field label="Payment Method">

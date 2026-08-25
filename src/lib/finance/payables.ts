@@ -2,6 +2,13 @@
 
 import type { Payable, RecurringPayable } from "@/lib/types";
 import { addMonths, dayOfMonth, daysUntil, diffDays, periodKey } from "./dates";
+import { subMoney } from "./money";
+
+/** Amount still owed on a payable (0 once paid or cancelled). */
+export function owedAmount(p: Pick<Payable, "amount" | "paid_amount" | "status">): number {
+  if (p.status === "paid" || p.status === "cancelled") return 0;
+  return Math.max(0, subMoney(p.amount, p.paid_amount ?? 0));
+}
 
 export type PayableAttentionLevel =
   | "paid"
