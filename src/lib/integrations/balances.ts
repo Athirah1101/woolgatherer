@@ -3,6 +3,7 @@
 
 import { stripeConfigured, syncStripeBalance } from "./stripe";
 import { airwallexConfigured, syncAirwallexBalance } from "./airwallex";
+import { payexConfigured, syncPayexBalance } from "./payex";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 
@@ -32,6 +33,7 @@ export async function syncAllBalances(): Promise<ProviderResult[]> {
   const results = await Promise.all([
     run("Stripe", stripeConfigured(), syncStripeBalance),
     run("Airwallex", airwallexConfigured(), syncAirwallexBalance),
+    run("Payex", payexConfigured(), syncPayexBalance),
   ]);
   // Record a cash-history snapshot after any successful balance update.
   if (results.some((r) => r.status === "ok")) {
