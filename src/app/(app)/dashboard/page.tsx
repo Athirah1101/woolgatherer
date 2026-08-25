@@ -69,7 +69,7 @@ export default async function DashboardPage() {
         <>
           <div className="mb-8">
             <SectionTitle>Cash</SectionTitle>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Current Cash" value={formatMYR(d.currentCash)} tone="green" href="/settings/bank-accounts" />
               <SummaryCard label="Projected Month-End Cash" value={formatMYR(d.projectedMonthEnd)}
                 tone={d.projectedMonthEnd >= d.currentCash ? "green" : "red"} href="/cashflow" />
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
 
           <div className="mb-8">
             <SectionTitle>Receivables</SectionTitle>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Outstanding" value={formatMYR(d.recv.outstanding)} tone="amber" href="/receivables?quick=outstanding" />
               <SummaryCard label="Overdue" value={formatMYR(d.recv.overdue)} tone="red" href="/receivables?quick=overdue" />
               <SummaryCard label="Due This Week" value={formatMYR(d.recv.dueThisWeek)} tone="blue" href="/receivables?quick=due_week" />
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
 
           <div className="mb-8">
             <SectionTitle>Payables</SectionTitle>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Overdue" value={formatMYR(d.pay.overdue)} tone="red" href="/payables" />
               <SummaryCard label="Due Today" value={formatMYR(d.pay.dueToday)} tone="orange" href="/payables" />
               <SummaryCard label="Due Within 3 Days" value={formatMYR(d.pay.due3)} tone="amber" href="/payables" />

@@ -36,7 +36,7 @@ export default async function RecurringDetailPage({
         actions={<ButtonLink href="/settings/recurring" variant="secondary">← Back</ButtonLink>}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Default Amount" value={formatMYR(rule.default_amount)} tone="blue" />
         <SummaryCard label="Total Paid (all time)" value={formatMYR(totalPaid)} tone="green" sub={`${paid.length} payment(s)`} />
         <SummaryCard label="Outstanding Bills" value={unpaidCount} tone={unpaidCount ? "amber" : "neutral"} />

@@ -53,7 +53,7 @@ export default async function CashflowPage({
       />
       <PeriodPicker />
 
-      <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Starting / Current Cash" value={formatMYR(summary.currentCash)} />
         <SummaryCard label="Expected Cash In" value={formatMYR(summary.expectedIn)} tone="green" />
         <SummaryCard label="Expected Cash Out" value={formatMYR(summary.expectedOut)} tone="amber" />
@@ -64,7 +64,7 @@ export default async function CashflowPage({
           sub="Current + Expected In − Expected Out"
         />
       </div>
-      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <SummaryCard label="Actual Cash In (recorded)" value={formatMYR(summary.actualIn)} tone="green" />
         <SummaryCard label="Actual Cash Out (recorded)" value={formatMYR(summary.actualOut)} tone="orange" />
         <SummaryCard

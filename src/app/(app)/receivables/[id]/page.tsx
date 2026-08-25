@@ -63,7 +63,7 @@ export default async function ReceivableDetailPage({
       />
 
       {/* Collection summary */}
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Deal Amount" value={formatMYR(r.total_receivable)} />
         <SummaryCard label="Total Paid" value={formatMYR(summary.totalPaid)} tone="green" />
         <SummaryCard label="Outstanding" value={formatMYR(summary.outstanding)} tone="amber" />

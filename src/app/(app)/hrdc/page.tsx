@@ -51,7 +51,7 @@ export default async function HrdcPage({
         actions={isFinance ? <ButtonLink href="/hrdc/new">+ New HRDC Claim</ButtonLink> : undefined}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <SummaryCard label="Refund Amount Due" value={formatMYR(refundAmountDue)} tone="orange" />
         <SummaryCard label="Refunds ≤ 7 Days" value={refundsDue7} tone="amber" />
         <SummaryCard label="Refunds Overdue" value={refundsOverdue} tone="red" />

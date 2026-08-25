@@ -90,7 +90,7 @@ export default async function RecurringPage({
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Forecasted Monthly" value={formatMYR(monthlyForecast)} tone="blue" sub="Average run-rate across all active rules" />
         <SummaryCard label="Forecasted Yearly" value={formatMYR(annualForecast)} tone="indigo" sub="Total committed for a full year" />
         <SummaryCard label="Due This Month" value={formatMYR(dueThisMonth)} tone="amber" sub="What these rules bill this month" />

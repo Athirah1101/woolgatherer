@@ -71,7 +71,7 @@ export default async function RefundsPage({
         })}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Refund Remaining" value={formatMYR(totalRemaining)} tone="orange" />
         <SummaryCard label="Refunds Overdue" value={overdue} tone={overdue ? "red" : "neutral"} />
         <SummaryCard label="Due ≤ 7 Days" value={due7} tone={due7 ? "amber" : "neutral"} />

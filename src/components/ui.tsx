@@ -188,7 +188,7 @@ export function SummaryCard({
       <div className="text-xs font-medium uppercase tracking-wide text-muted">
         {label}
       </div>
-      <div className={cn("mt-1.5 text-2xl font-semibold tabular-nums", accent[tone])}>
+      <div className={cn("mt-1.5 text-xl font-semibold leading-tight tabular-nums break-words lg:text-2xl", accent[tone])}>
         {value}
       </div>
       {sub != null && <div className="mt-1 text-xs text-muted">{sub}</div>}

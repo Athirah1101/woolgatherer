@@ -93,7 +93,7 @@ export default async function PayablesPage({
         actions={isFinance ? <PayableForm cats={cats} methods={methods} /> : undefined}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Overdue" value={formatMYR(overdue)} tone="red" />
         <SummaryCard label="Due Today" value={formatMYR(dueToday)} tone="orange" />
         <SummaryCard label="Due Within 3 Days" value={formatMYR(due3)} tone="amber" />
