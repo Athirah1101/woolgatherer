@@ -100,22 +100,49 @@ interface PayexList<T> {
   message?: string;
 }
 
-/** Fetch every page of a Payex list endpoint over [start, end], newest first. */
+async function fetchPage<T>(
+  path: string,
+  token: string,
+  start: string,
+  end: string,
+  page: number,
+): Promise<PayexList<T>> {
+  const url = `${base()}${path}?start_date=${start}&end_date=${end}&limit=${PAGE_SIZE}&page=${page}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const body = (await res.json().catch(() => null)) as PayexList<T> | null;
+  if (!res.ok) throw new Error(`Payex ${path} error: ${body?.message ?? res.statusText}`);
+  return body ?? {};
+}
+
+/**
+ * Fetch every page of a Payex list endpoint over [start, end]. Page 1 is
+ * fetched first to learn total_pages, then the rest are fetched in parallel so
+ * a long history stays well under the request time limit. Falls back to
+ * sequential paging if the API doesn't report total_pages.
+ */
 async function fetchAll<T>(path: string, token: string, start: string, end: string): Promise<T[]> {
-  const out: T[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `${base()}${path}?start_date=${start}&end_date=${end}&limit=${PAGE_SIZE}&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      cache: "no-store",
-    });
-    const body = (await res.json().catch(() => null)) as PayexList<T> | null;
-    if (!res.ok) throw new Error(`Payex ${path} error: ${body?.message ?? res.statusText}`);
-    const rows = Array.isArray(body?.result) ? body!.result! : [];
+  const first = await fetchPage<T>(path, token, start, end, 1);
+  const firstRows = Array.isArray(first.result) ? first.result : [];
+  const out: T[] = [...firstRows];
+  if (firstRows.length < PAGE_SIZE) return out; // single (partial) page
+
+  const totalPages = Math.min(toNum(first.total_pages) || MAX_PAGES, MAX_PAGES);
+  if (totalPages > 1) {
+    const pages = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+    const rest = await Promise.all(pages.map((p) => fetchPage<T>(path, token, start, end, p)));
+    for (const b of rest) if (Array.isArray(b.result)) out.push(...b.result);
+    return out;
+  }
+
+  // No usable total_pages — walk sequentially until a short page.
+  for (let page = 2; page <= MAX_PAGES; page++) {
+    const b = await fetchPage<T>(path, token, start, end, page);
+    const rows = Array.isArray(b.result) ? b.result : [];
     out.push(...rows);
-    const totalPages = toNum(body?.total_pages);
-    if (rows.length < PAGE_SIZE) break; // last (partial) page
-    if (totalPages && page >= totalPages) break;
+    if (rows.length < PAGE_SIZE) break;
   }
   return out;
 }

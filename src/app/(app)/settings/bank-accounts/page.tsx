@@ -8,6 +8,11 @@ import { SyncBalancesButton } from "./SyncStripeButton";
 import { BankTrendChart } from "./BankTrendChart";
 import { BankAccountsTable, NewBankAccountButton } from "./BankAccountsTable";
 
+// Allow the manual "Sync balances now" action extra time: the Payex sync pages
+// through its full transaction history, which can take longer than the instant
+// Stripe/Airwallex balance calls.
+export const maxDuration = 60;
+
 export default async function BankAccountsPage() {
   await requireRole("finance");
   const [accounts, cashHistory] = await Promise.all([getBankAccounts(), getCashHistory()]);

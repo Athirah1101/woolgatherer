@@ -11,6 +11,8 @@ import type { HrdcClaim, HrdcRefund } from "@/lib/types";
 // balance provider, then emails a daily summary + any HRDC refunds due soon.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// Payex reconstructs its balance by paging its full history — give it headroom.
+export const maxDuration = 60;
 
 async function refundsDueSoon(): Promise<string[]> {
   try {
