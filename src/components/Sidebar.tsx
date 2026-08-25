@@ -25,6 +25,7 @@ const FIN: Role[] = ["finance"];
 
 const NAV: Group[] = [
   { items: [{ label: "Dashboard", href: "/dashboard", icon: "🏠", roles: ALL }] },
+  { items: [{ label: "Bank Accounts", href: "/settings/bank-accounts", icon: "🏦", roles: FIN }] },
   {
     heading: "Money In",
     items: [
@@ -49,7 +50,6 @@ const NAV: Group[] = [
       { label: "Recurring Payables", href: "/settings/recurring", icon: "🔁", roles: FIN },
       { label: "Categories", href: "/settings/categories", icon: "🏷️", roles: FIN },
       { label: "Payment Methods", href: "/settings/payment-methods", icon: "💳", roles: FIN },
-      { label: "Bank Accounts", href: "/settings/bank-accounts", icon: "🏦", roles: FIN },
       { label: "Users & Access", href: "/settings/users", icon: "👥", roles: FIN },
     ],
   },

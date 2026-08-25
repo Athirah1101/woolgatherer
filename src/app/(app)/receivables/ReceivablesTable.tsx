@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AttentionBadge, Card, Chip, EmptyState, StatusChip,
@@ -29,6 +29,8 @@ export interface RecvRowView {
   hrdc: boolean;
   remarks: string | null;
 }
+
+const UPCOMING_HIDDEN_KEY = "financeos.recv.upcomingHidden";
 
 const QUICK = [
   { key: "", label: "All" },
@@ -134,7 +136,61 @@ export function ReceivablesTable({
         .sort((a, b) => (a.nextDate ?? "").localeCompare(b.nextDate ?? "")),
     [rows, today],
   );
-  const upcomingTotal = sumMoney(upcoming.map((r) => (r.nextAmount > 0 ? r.nextAmount : r.outstanding)));
+  // Per-browser hide list for the upcoming board.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(UPCOMING_HIDDEN_KEY);
+      if (raw) setHidden(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  function persistHidden(next: Set<string>) {
+    setHidden(next);
+    try {
+      localStorage.setItem(UPCOMING_HIDDEN_KEY, JSON.stringify([...next]));
+    } catch {
+      /* ignore */
+    }
+  }
+  const hide = (id: string) => persistHidden(new Set(hidden).add(id));
+  const unhide = (id: string) => {
+    const n = new Set(hidden);
+    n.delete(id);
+    persistHidden(n);
+  };
+
+  const visibleUpcoming = upcoming.filter((r) => !hidden.has(r.id));
+  const hiddenUpcoming = upcoming.filter((r) => hidden.has(r.id));
+  const upcomingTotal = sumMoney(visibleUpcoming.map((r) => (r.nextAmount > 0 ? r.nextAmount : r.outstanding)));
+
+  const upcomingRow = (r: RecvRowView, isHidden: boolean) => {
+    const d = daysUntil(r.nextDate!, today);
+    return (
+      <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+        <Link href={`/receivables/${r.id}`} className="min-w-0 truncate font-medium hover:text-brand hover:underline">
+          {r.client}
+          {r.product && <span className="font-normal text-muted"> · {r.product}</span>}
+        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="tabular-nums">{formatMYR(r.nextAmount > 0 ? r.nextAmount : r.outstanding)}</span>
+          <AttentionBadge
+            label={`${formatDate(r.nextDate)} · ${relative(r.nextDate!, today)}`}
+            tone={d < 0 ? "red" : d <= 2 ? "amber" : "blue"}
+          />
+          <button
+            onClick={() => (isHidden ? unhide(r.id) : hide(r.id))}
+            className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-gray-100"
+            title={isHidden ? "Unhide" : "Hide from this board"}
+          >
+            {isHidden ? "Unhide" : "Hide"}
+          </button>
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div>
@@ -142,32 +198,34 @@ export function ReceivablesTable({
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold">Upcoming Receivables — next 7 days</h3>
           <span className="text-sm text-muted">
-            {upcoming.length} due · <span className="font-semibold text-text">{formatMYR(upcomingTotal)}</span>
+            {visibleUpcoming.length} due · <span className="font-semibold text-text">{formatMYR(upcomingTotal)}</span>
           </span>
         </div>
-        {upcoming.length === 0 ? (
+        {visibleUpcoming.length === 0 && hiddenUpcoming.length === 0 ? (
           <p className="text-sm text-muted">Nothing due in the next 7 days. 🎉</p>
         ) : (
-          <ul className="divide-y divide-border">
-            {upcoming.map((r) => {
-              const d = daysUntil(r.nextDate!, today);
-              return (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <Link href={`/receivables/${r.id}`} className="min-w-0 truncate font-medium hover:text-brand hover:underline">
-                    {r.client}
-                    {r.product && <span className="font-normal text-muted"> · {r.product}</span>}
-                  </Link>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="tabular-nums">{formatMYR(r.nextAmount > 0 ? r.nextAmount : r.outstanding)}</span>
-                    <AttentionBadge
-                      label={`${formatDate(r.nextDate)} · ${relative(r.nextDate!, today)}`}
-                      tone={d < 0 ? "red" : d <= 2 ? "amber" : "blue"}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            {visibleUpcoming.length > 0 ? (
+              <ul className="divide-y divide-border">{visibleUpcoming.map((r) => upcomingRow(r, false))}</ul>
+            ) : (
+              <p className="text-sm text-muted">All upcoming items are hidden.</p>
+            )}
+            {hiddenUpcoming.length > 0 && (
+              <div className="mt-3 border-t border-border pt-3">
+                <button
+                  onClick={() => setShowHidden((v) => !v)}
+                  className="text-sm font-medium text-brand hover:underline"
+                >
+                  {showHidden ? "Hide" : "Reveal"} hidden ({hiddenUpcoming.length})
+                </button>
+                {showHidden && (
+                  <ul className="mt-2 divide-y divide-border opacity-70">
+                    {hiddenUpcoming.map((r) => upcomingRow(r, true))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
         )}
       </Card>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
