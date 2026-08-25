@@ -71,7 +71,9 @@ async function getToken(): Promise<string> {
   if (!email || !secret) throw new Error("Payex credentials are not set.");
 
   const basic = Buffer.from(`${email}:${secret}`).toString("base64");
-  const res = await fetch(`${base()}/api/v1/Auth/Token`, {
+  // NOTE: the login lives at /api/Auth/Token (no "v1"), unlike the data
+  // endpoints which are under /api/v1/. Payex uses different path prefixes.
+  const res = await fetch(`${base()}/api/Auth/Token`, {
     method: "POST",
     headers: { Authorization: `Basic ${basic}`, Accept: "application/json" },
     cache: "no-store",
