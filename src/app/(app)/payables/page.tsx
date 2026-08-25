@@ -7,7 +7,7 @@ import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
   Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
-import { Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
@@ -248,7 +248,7 @@ function PayableForm({
       <Field label="Description"><Input name="description" defaultValue={p?.description ?? ""} /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Amount" required><MoneyInput name="amount" defaultValue={p?.amount} required /></Field>
-        <Field label="Due Date" required><Input type="date" name="due_date" defaultValue={p?.due_date ?? todayISO()} required /></Field>
+        <Field label="Due Date" required><DateWithToday name="due_date" defaultValue={p?.due_date ?? todayISO()} required /></Field>
       </div>
       <Field label="Payment Method">
         <Select name="payment_method_id" defaultValue={methodId}>
@@ -292,7 +292,7 @@ function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
       <Field label="Actual Amount Paid" required hint="For variable bills (EPF, utilities) enter the real amount.">
         <MoneyInput name="paid_amount" defaultValue={p.amount} required />
       </Field>
-      <Field label="Paid Date" required><Input type="date" name="paid_date" defaultValue={todayISO()} required /></Field>
+      <Field label="Paid Date" required><DateWithToday name="paid_date" defaultValue={todayISO()} required /></Field>
       <Field label="Payment Method">
         <Select name="payment_method_id" defaultValue={p.payment_method_id ?? ""}>
           <option value="">—</option>

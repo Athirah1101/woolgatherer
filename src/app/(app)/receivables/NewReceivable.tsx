@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { buttonClass } from "@/components/ui";
-import { Field, Input, MoneyInput, Select, SubmitButton, Textarea } from "@/components/form";
+import { DateWithToday, Field, Input, MoneyInput, Select, SubmitButton, Textarea } from "@/components/form";
 import {
   generateSchedule,
   PAYMENT_PLAN_OPTIONS,
@@ -85,7 +85,7 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
                   </datalist>
                 </Field>
                 <Field label="Deal Date">
-                  <Input type="date" name="deal_date" defaultValue={todayISO()} />
+                  <DateWithToday name="deal_date" defaultValue={todayISO()} />
                 </Field>
                 <Field label="Original Deal Amount" required>
                   <MoneyInput

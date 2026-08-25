@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui";
-import { Field, Input, MoneyInput, SubmitButton, Textarea } from "@/components/form";
+import { DateWithToday, Field, Input, MoneyInput, SubmitButton, Textarea } from "@/components/form";
 import { createHrdcClaim } from "./actions";
 
 export interface HrdcDefaults {
@@ -49,7 +49,7 @@ export function NewHrdcForm({ defaults }: { defaults: HrdcDefaults }) {
             <MoneyInput name="claim_amount" />
           </Field>
           <Field label="Grant Application Date">
-            <Input type="date" name="grant_application_date" />
+            <DateWithToday name="grant_application_date" />
           </Field>
         </div>
         <Field label="Notes">

@@ -7,7 +7,7 @@ import {
   AttentionBadge, Card, Chip, EmptyState, PageHeader, SectionTitle, StatusChip,
   SummaryCard, Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
-import { Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import {
@@ -217,7 +217,7 @@ function RecordHrdcPayment({ claim }: { claim: HrdcClaim }) {
     >
       <input type="hidden" name="id" value={claim.id} />
       <Field label="Amount Received" required><MoneyInput name="hrdc_amount_received" defaultValue={claim.claim_amount ?? undefined} required /></Field>
-      <Field label="Date Received" required hint="The 30-day refund deadline counts from this exact date."><Input type="date" name="hrdc_received_date" required /></Field>
+      <Field label="Date Received" required hint="The 30-day refund deadline counts from this exact date."><DateWithToday name="hrdc_received_date" required /></Field>
       <Field label="Refund Amount Due To Client" hint="Defaults to the amount received."><MoneyInput name="refund_amount_due" defaultValue={claim.claim_amount ?? undefined} /></Field>
     </FormDrawer>
   );
@@ -234,7 +234,7 @@ function RecordRefund({ claim, methods, remaining }: { claim: HrdcClaim; methods
     >
       <input type="hidden" name="claim_id" value={claim.id} />
       <Field label="Refund Amount" required><MoneyInput name="amount" defaultValue={remaining} required /></Field>
-      <Field label="Refund Date" required><Input type="date" name="refund_date" required /></Field>
+      <Field label="Refund Date" required><DateWithToday name="refund_date" required /></Field>
       <Field label="Payment Method">
         <Select name="payment_method_id" defaultValue={claim.refund_payment_method_id ?? ""}>
           <option value="">—</option>
@@ -258,9 +258,9 @@ function LogQuery({ claim }: { claim: HrdcClaim }) {
       submitLabel="Save Query"
     >
       <input type="hidden" name="id" value={claim.id} />
-      <Field label="Query Received Date" required><Input type="date" name="query_received_date" defaultValue={claim.query_received_date ?? ""} required /></Field>
+      <Field label="Query Received Date" required><DateWithToday name="query_received_date" defaultValue={claim.query_received_date ?? ""} required /></Field>
       <Field label="Query Details"><Textarea name="query_details" defaultValue={claim.query_details ?? ""} /></Field>
-      <Field label="Replied Date (if replied)"><Input type="date" name="query_replied_date" defaultValue={claim.query_replied_date ?? ""} /></Field>
+      <Field label="Replied Date (if replied)"><DateWithToday name="query_replied_date" defaultValue={claim.query_replied_date ?? ""} /></Field>
     </FormDrawer>
   );
 }
@@ -285,14 +285,14 @@ function EditClaim({ claim: c }: { claim: HrdcClaim }) {
         <Field label="Claim Amount"><MoneyInput name="claim_amount" defaultValue={c.claim_amount ?? undefined} /></Field>
         <Field label="Approved Amount"><MoneyInput name="approved_amount" defaultValue={c.approved_amount ?? undefined} /></Field>
         <Field label="Grant Reference"><Input name="grant_reference" defaultValue={c.grant_reference ?? ""} /></Field>
-        <Field label="Grant Application Date"><Input type="date" name="grant_application_date" defaultValue={c.grant_application_date ?? ""} /></Field>
-        <Field label="Grant Approval Date"><Input type="date" name="grant_approval_date" defaultValue={c.grant_approval_date ?? ""} /></Field>
+        <Field label="Grant Application Date"><DateWithToday name="grant_application_date" defaultValue={c.grant_application_date ?? ""} /></Field>
+        <Field label="Grant Approval Date"><DateWithToday name="grant_approval_date" defaultValue={c.grant_approval_date ?? ""} /></Field>
         <Field label="Grant Status"><Input name="grant_status" defaultValue={c.grant_status ?? ""} /></Field>
-        <Field label="Training Start"><Input type="date" name="training_start_date" defaultValue={c.training_start_date ?? ""} /></Field>
-        <Field label="Training End"><Input type="date" name="training_end_date" defaultValue={c.training_end_date ?? ""} /></Field>
-        <Field label="Documents Collected"><Input type="date" name="documents_collected_date" defaultValue={c.documents_collected_date ?? ""} /></Field>
-        <Field label="Claim Submitted"><Input type="date" name="claim_submitted_date" defaultValue={c.claim_submitted_date ?? ""} /></Field>
-        <Field label="Claim Approved"><Input type="date" name="claim_approved_date" defaultValue={c.claim_approved_date ?? ""} /></Field>
+        <Field label="Training Start"><DateWithToday name="training_start_date" defaultValue={c.training_start_date ?? ""} /></Field>
+        <Field label="Training End"><DateWithToday name="training_end_date" defaultValue={c.training_end_date ?? ""} /></Field>
+        <Field label="Documents Collected"><DateWithToday name="documents_collected_date" defaultValue={c.documents_collected_date ?? ""} /></Field>
+        <Field label="Claim Submitted"><DateWithToday name="claim_submitted_date" defaultValue={c.claim_submitted_date ?? ""} /></Field>
+        <Field label="Claim Approved"><DateWithToday name="claim_approved_date" defaultValue={c.claim_approved_date ?? ""} /></Field>
         <Field label="Claim Status"><Input name="claim_status" defaultValue={c.claim_status ?? ""} /></Field>
       </div>
       <label className="flex items-center gap-2 text-sm">

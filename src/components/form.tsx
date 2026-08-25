@@ -73,15 +73,28 @@ export function MoneyInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 export function DateWithToday({
   name,
   defaultValue,
+  required,
 }: {
   name: string;
   defaultValue?: string;
+  required?: boolean;
 }) {
   const [value, setValue] = useState(defaultValue ?? "");
   return (
     <div className="flex gap-2">
-      <Input type="date" name={name} value={value} onChange={(e) => setValue(e.target.value)} />
-      <button type="button" className={buttonClass("secondary")} onClick={() => setValue(todayISO())}>
+      <Input
+        type="date"
+        name={name}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        required={required}
+        className="min-w-0 flex-1"
+      />
+      <button
+        type="button"
+        className={buttonClass("secondary")}
+        onClick={() => setValue(todayISO())}
+      >
         Today
       </button>
     </div>

@@ -6,7 +6,7 @@ import type { Category, PaymentMethod, RecurringPayable } from "@/lib/types";
 import {
   buttonClass, Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
-import { Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
@@ -190,8 +190,8 @@ function RuleForm({
         </Select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Start Date" required><Input type="date" name="start_date" defaultValue={rule?.start_date ?? todayISO()} required /></Field>
-        <Field label="End Date (optional)"><Input type="date" name="end_date" defaultValue={rule?.end_date ?? ""} /></Field>
+        <Field label="Start Date" required><DateWithToday name="start_date" defaultValue={rule?.start_date ?? todayISO()} required /></Field>
+        <Field label="End Date (optional)"><DateWithToday name="end_date" defaultValue={rule?.end_date ?? ""} /></Field>
       </div>
       <Field label="Status">
         <Select name="active" defaultValue={rule?.active === false ? "false" : "true"}>

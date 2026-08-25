@@ -8,7 +8,7 @@ import {
   StatusChip, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
 import {
-  Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea,
+  DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea,
 } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
@@ -235,7 +235,7 @@ function RecordPayment({
         <MoneyInput name="amount" required />
       </Field>
       <Field label="Received Date" required>
-        <Input type="date" name="received_date" defaultValue={todayISO()} required />
+        <DateWithToday name="received_date" defaultValue={todayISO()} required />
       </Field>
       <Field label="Payment Method">
         <Select name="payment_method_id" defaultValue="">
@@ -280,7 +280,7 @@ function ScheduleRow({
       <input type="hidden" name="receivable_id" value={receivableId} />
       {row && <input type="hidden" name="id" value={row.id} />}
       <Field label="Due Date" required>
-        <Input type="date" name="due_date" defaultValue={row?.due_date} required />
+        <DateWithToday name="due_date" defaultValue={row?.due_date} required />
       </Field>
       <Field label="Expected Amount" required>
         <MoneyInput name="expected_amount" defaultValue={row?.expected_amount} required />
@@ -308,7 +308,7 @@ function EditReceivable({ r }: { r: import("@/lib/types").Receivable }) {
       <Field label="Contact Name"><Input name="contact_name" defaultValue={r.contact_name ?? ""} /></Field>
       <Field label="Product / Program"><Input name="product" defaultValue={r.product ?? ""} /></Field>
       <Field label="Sales PIC"><Input name="sales_pic" defaultValue={r.sales_pic ?? ""} /></Field>
-      <Field label="Deal Date"><Input type="date" name="deal_date" defaultValue={r.deal_date ?? ""} /></Field>
+      <Field label="Deal Date"><DateWithToday name="deal_date" defaultValue={r.deal_date ?? ""} /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Original Amount"><MoneyInput name="original_amount" defaultValue={r.original_amount} /></Field>
         <Field label="Total Receivable"><MoneyInput name="total_receivable" defaultValue={r.total_receivable} /></Field>
