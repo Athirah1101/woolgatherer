@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/components/ui";
+import { FeedbackButton } from "@/components/FeedbackButton";
 import type { Role } from "@/lib/types";
 
 interface Item {
@@ -40,6 +41,8 @@ const NAV: Group[] = [
     items: [{ label: "Refunds", href: "/refunds", icon: "↩️", roles: FIN_MGMT }],
   },
   { items: [{ label: "Cashflow", href: "/cashflow", icon: "💵", roles: FIN_MGMT }] },
+  { items: [{ label: "Change History", href: "/activity", icon: "🕒", roles: FIN_MGMT }] },
+  { items: [{ label: "Feedback", href: "/feedback", icon: "💬", roles: FIN_MGMT }] },
   {
     heading: "Settings",
     items: [
@@ -201,6 +204,9 @@ export function Sidebar({
             </button>
           ) : (
             <>
+              <div className="mb-3">
+                <FeedbackButton />
+              </div>
               <div className="mb-2 px-2">
                 <p className="truncate text-sm font-medium">{name}</p>
                 <p className="truncate text-xs text-muted">{email}</p>
