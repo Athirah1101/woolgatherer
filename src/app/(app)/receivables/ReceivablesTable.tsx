@@ -125,8 +125,51 @@ export function ReceivablesTable({
   const totalOverdue = sumMoney(filtered.map((r) => r.overdue));
   const totalCollected = sumMoney(filtered.map((r) => r.paid));
 
+  // Receivables with a payment due within the next 7 days (or already overdue),
+  // computed from the live data + today — so it's always current.
+  const upcoming = useMemo(
+    () =>
+      rows
+        .filter((r) => r.nextDate && r.outstanding > 0 && daysUntil(r.nextDate, today) <= 7)
+        .sort((a, b) => (a.nextDate ?? "").localeCompare(b.nextDate ?? "")),
+    [rows, today],
+  );
+  const upcomingTotal = sumMoney(upcoming.map((r) => (r.nextAmount > 0 ? r.nextAmount : r.outstanding)));
+
   return (
     <div>
+      <Card className="mb-6 border-l-4 border-l-amber-400">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-semibold">Upcoming Receivables — next 7 days</h3>
+          <span className="text-sm text-muted">
+            {upcoming.length} due · <span className="font-semibold text-text">{formatMYR(upcomingTotal)}</span>
+          </span>
+        </div>
+        {upcoming.length === 0 ? (
+          <p className="text-sm text-muted">Nothing due in the next 7 days. 🎉</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {upcoming.map((r) => {
+              const d = daysUntil(r.nextDate!, today);
+              return (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <Link href={`/receivables/${r.id}`} className="min-w-0 truncate font-medium hover:text-brand hover:underline">
+                    {r.client}
+                    {r.product && <span className="font-normal text-muted"> · {r.product}</span>}
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="tabular-nums">{formatMYR(r.nextAmount > 0 ? r.nextAmount : r.outstanding)}</span>
+                    <AttentionBadge
+                      label={`${formatDate(r.nextDate)} · ${relative(r.nextDate!, today)}`}
+                      tone={d < 0 ? "red" : d <= 2 ? "amber" : "blue"}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard label="Outstanding" value={formatMYR(totalOutstanding)} tone="amber" />
         <SummaryCard label="Overdue" value={formatMYR(totalOverdue)} tone="red" />
