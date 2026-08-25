@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { getBankAccounts } from "@/lib/data/refs";
 import { EmptyState, PageHeader, SummaryCard } from "@/components/ui";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
+import { formatDateTime } from "@/lib/finance/dates";
 import { getCashHistory } from "@/lib/data/cashHistory";
 import { SyncBalancesButton } from "./SyncStripeButton";
 import { BankTrendChart } from "./BankTrendChart";
@@ -11,12 +12,17 @@ export default async function BankAccountsPage() {
   await requireRole("finance");
   const [accounts, cashHistory] = await Promise.all([getBankAccounts(), getCashHistory()]);
   const total = sumMoney(accounts.filter((a) => a.active).map((a) => a.current_balance));
+  const lastUpdated = accounts
+    .map((a) => a.updated_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
 
   return (
     <div>
       <PageHeader
         title="Bank Accounts"
-        subtitle="Current Cash on the Dashboard aggregates active accounts. Stripe & Airwallex (MYR) update automatically each day."
+        subtitle="Stripe & Airwallex (MYR) auto-update daily at midnight (MYT). Press “Sync balances now” anytime for the latest. Current Cash on the Dashboard sums the active accounts."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SyncBalancesButton />
@@ -25,7 +31,12 @@ export default async function BankAccountsPage() {
         }
       />
       <div className="mb-6 max-w-xs">
-        <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />
+        <SummaryCard
+          label="Current Cash (active)"
+          value={formatMYR(total)}
+          tone="green"
+          sub={lastUpdated ? `Last updated ${formatDateTime(lastUpdated)}` : undefined}
+        />
       </div>
 
       {accounts.length === 0 ? (

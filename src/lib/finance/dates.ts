@@ -120,6 +120,20 @@ export function formatDateShort(iso: string | null | undefined): string {
   return `${d} ${MONTHS[m - 1]}`;
 }
 
+/** Full timestamp in the business timezone: "25 Aug 2026, 11:30 AM". */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-MY", {
+      timeZone: BUSINESS_TZ,
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso));
+  } catch {
+    return "—";
+  }
+}
+
 /** Relative wording: "in 3 days", "today", "tomorrow", "5 days ago". */
 export function relativeDays(date: string, today: string): string {
   const n = diffDays(today, date);

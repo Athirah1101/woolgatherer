@@ -20,6 +20,7 @@ export interface BankAccount {
   current_balance: number;
   balance_as_of: string | null;
   active: boolean;
+  updated_at?: string;
 }
 
 export interface Category {
