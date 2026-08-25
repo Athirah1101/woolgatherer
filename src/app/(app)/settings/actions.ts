@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { syncAllBalances } from "@/lib/integrations/balances";
+import { sendNotification } from "@/lib/integrations/email";
 import { formatMYR } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 
@@ -89,6 +90,9 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
       summary: `${name} balance ${payload.current_balance}`,
     });
     await recordCashSnapshot(supabase);
+    await sendNotification("Bank balance updated", [
+      `${name}: ${formatMYR(payload.current_balance)}${payload.balance_as_of ? ` (as of ${payload.balance_as_of})` : ""}`,
+    ]);
     revalidatePath("/settings/bank-accounts");
     revalidatePath("/dashboard");
     revalidatePath("/cashflow");

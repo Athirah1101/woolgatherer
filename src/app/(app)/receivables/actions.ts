@@ -9,6 +9,7 @@ import type { PaymentAllocation, PaymentSchedule, ReceivablePayment } from "@/li
 import { allocatePayment, summarizeReceivable } from "@/lib/finance/receivables";
 import { todayISO } from "@/lib/finance/dates";
 import { formatMYR } from "@/lib/finance/money";
+import { sendNotification } from "@/lib/integrations/email";
 
 async function financeGuard() {
   const session = await getSession();
@@ -264,6 +265,10 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
       summary: `${formatMYR(amount)} received${credit > 0 ? ` (${formatMYR(credit)} credit)` : ""}`,
       new_value: { amount, received_date, credit },
     });
+    const { data: rec } = await supabase.from("receivables").select("client_name").eq("id", receivable_id).single();
+    await sendNotification("Receivable payment received", [
+      `${rec?.client_name ?? "Client"} — ${formatMYR(amount)} on ${received_date}`,
+    ]);
     refreshReceivableViews(receivable_id);
     return { ok: true };
   } catch (e) {

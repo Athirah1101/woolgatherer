@@ -10,6 +10,7 @@ import { dueDatesForRule } from "@/lib/finance/payables";
 import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
 import { formatMYR, subMoney } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
+import { sendNotification } from "@/lib/integrations/email";
 
 async function financeGuard() {
   const session = await getSession();
@@ -92,6 +93,9 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
 
     // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account.
     await maybeDeductFromBank(supabase, session.userId, method_id, paid_amount);
+
+    const { data: paid } = await supabase.from("payables").select("payee").eq("id", id).single();
+    await sendNotification("Payable marked paid", [`${paid?.payee ?? "Payable"} — ${formatMYR(paid_amount)}`]);
 
     refresh();
     return { ok: true };
