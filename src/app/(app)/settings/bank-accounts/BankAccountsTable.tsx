@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Card, Chip } from "@/components/ui";
 import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
-import { formatDate, todayISO } from "@/lib/finance/dates";
+import { formatDate, formatTime, todayISO } from "@/lib/finance/dates";
 import type { BankAccount } from "@/lib/types";
 import { reorderBankAccounts, saveBankAccount } from "../actions";
 
@@ -103,7 +103,12 @@ export function BankAccountsTable({ accounts }: { accounts: BankAccount[] }) {
                 <td className="px-4 py-3 font-medium">{a.account_name}</td>
                 <td className="px-4 py-3">{a.bank ?? "—"}</td>
                 <td className="px-4 py-3 text-right font-medium tabular-nums">{formatMYR(a.current_balance)}</td>
-                <td className="px-4 py-3">{formatDate(a.balance_as_of)}</td>
+                <td className="px-4 py-3">
+                  {formatDate(a.balance_as_of)}
+                  {a.updated_at && (
+                    <div className="text-xs text-muted">updated {formatTime(a.updated_at)}</div>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <Chip tone={a.active ? "green" : "gray"}>{a.active ? "Active" : "Inactive"}</Chip>
                 </td>
