@@ -22,11 +22,15 @@ export async function submitFeedback(_: ActionState, fd: FormData): Promise<Acti
     });
     if (error) return { error: error.message };
 
-    await sendNotification("New feedback submitted", [
-      `From: ${session.profile.full_name ?? session.profile.email ?? "a user"}`,
-      ...(page ? [`Page: ${page}`] : []),
-      message,
-    ]);
+    await sendNotification(
+      "New feedback submitted",
+      [
+        `From: ${session.profile.full_name ?? session.profile.email ?? "a user"}`,
+        ...(page ? [`Page: ${page}`] : []),
+        message,
+      ],
+      ["athirah@vertexmastery.com"], // feedback goes to Athirah only
+    );
     revalidatePath("/feedback");
     return { ok: true };
   } catch (e) {

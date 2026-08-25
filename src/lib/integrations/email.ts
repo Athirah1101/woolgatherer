@@ -16,11 +16,15 @@ function recipients(): string[] {
     .filter(Boolean);
 }
 
-export async function sendNotification(subject: string, lines: string[]): Promise<void> {
+export async function sendNotification(
+  subject: string,
+  lines: string[],
+  toOverride?: string[],
+): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return; // notifications not configured yet
   const from = process.env.RESEND_FROM || "FinanceOS <onboarding@resend.dev>";
-  const to = recipients();
+  const to = toOverride && toOverride.length ? toOverride : recipients();
   if (to.length === 0) return;
 
   const html = `
