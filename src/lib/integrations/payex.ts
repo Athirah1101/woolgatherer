@@ -22,7 +22,7 @@
 // no sen conversion is needed.
 
 import { writeBankBalance } from "./bank-sync";
-import { todayISO } from "@/lib/finance/dates";
+import { addDays, todayISO } from "@/lib/finance/dates";
 import { round2 } from "@/lib/finance/money";
 
 const PAYEX_ACCOUNT_NAME = "Payex";
@@ -49,9 +49,31 @@ function base(): string {
   return (process.env.PAYEX_BASE || "https://api.payex.io").replace(/\/$/, "");
 }
 
-/** Earliest date to scan from (yyyyMMdd). Default well before Payex was used. */
-function startDate(): string {
-  return (process.env.PAYEX_START_DATE || "20240101").replace(/-/g, "");
+/** "yyyyMMdd" (strip any dashes) from an ISO or compact date string. */
+const compact = (s: string): string => s.replace(/-/g, "");
+
+/**
+ * Anchor: a known Payex balance as of a known date. When set, the sync only
+ * scans activity AFTER that date and adds/subtracts onto the anchor — so the
+ * window stays tiny and fast. When unset, it falls back to a full-history scan
+ * from PAYEX_START_DATE with a zero base.
+ */
+function anchor(): { balance: number; scanFrom: string } {
+  const balance = toNum(process.env.PAYEX_ANCHOR_BALANCE); // 0 if unset
+  const anchorDate = process.env.PAYEX_ANCHOR_DATE?.trim();
+  if (anchorDate) {
+    // Scan strictly AFTER the anchor day — that day's activity is already
+    // reflected in the balance the user read from the portal.
+    return { balance, scanFrom: compact(addDays(toISO(anchorDate), 1)) };
+  }
+  const start = process.env.PAYEX_START_DATE || "20240101";
+  return { balance: 0, scanFrom: compact(start) };
+}
+
+/** Normalise "20260825" or "2026-08-25" to ISO "2026-08-25". */
+function toISO(s: string): string {
+  if (s.includes("-")) return s;
+  return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 }
 
 export function payexConfigured(): boolean {
@@ -175,7 +197,7 @@ export interface PayexSyncResult {
  */
 export async function syncPayexBalance(): Promise<PayexSyncResult> {
   const token = await getToken();
-  const start = startDate();
+  const { balance: anchorBalance, scanFrom: start } = anchor();
   const end = todayISO().replace(/-/g, "");
 
   const [txns, settlements] = await Promise.all([
@@ -205,7 +227,7 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     settled += toNum(s.gross_amount ?? s.base_amount);
   }
 
-  const balance = round2(collected - settled);
+  const balance = round2(anchorBalance + collected - settled);
   const asOf = await writeBankBalance(PAYEX_ACCOUNT_NAME, balance);
 
   // Surface a status breakdown so the collected-status filter can be verified
@@ -214,7 +236,8 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     .sort((a, b) => b[1] - a[1])
     .map(([s, n]) => `${s}:${n}`)
     .join(" ");
-  const detail = `${collectedCount} collected − ${settlements.length} settlements · statuses ${breakdown}`;
+  const base = anchorBalance ? `anchor ${round2(anchorBalance)} + ` : "";
+  const detail = `${base}${collectedCount} collected − ${settlements.length} settlements (since ${start}) · statuses ${breakdown}`;
 
   return { balance, collected: round2(collected), settled: round2(settled), asOf, detail };
 }
