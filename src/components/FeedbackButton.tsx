@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { buttonClass, cn } from "@/components/ui";
 import { Field, Input, Textarea, SubmitButton } from "@/components/form";
@@ -20,6 +21,9 @@ export function FeedbackButton() {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, formAction] = useActionState(submitFeedback, null);
+  // Only portal on the client (document exists after mount).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (state?.ok) {
@@ -44,7 +48,7 @@ export function FeedbackButton() {
       <button className={buttonClass("secondary")} onClick={() => setOpen(true)}>
         💬 Send Feedback
       </button>
-      {open && (
+      {open && mounted && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div
@@ -148,7 +152,8 @@ export function FeedbackButton() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
