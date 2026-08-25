@@ -159,7 +159,9 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-surface transition-all md:static md:translate-x-0",
+          // Full viewport height and sticky on desktop so the nav scrolls
+          // INSIDE the sidebar (its own scrollbar) and the footer stays pinned.
+          "fixed inset-y-0 left-0 z-40 flex h-screen flex-col border-r border-border bg-surface transition-all md:sticky md:top-0 md:translate-x-0",
           collapsed ? "w-64 md:w-16" : "w-64",
           open ? "translate-x-0" : "-translate-x-full",
         )}

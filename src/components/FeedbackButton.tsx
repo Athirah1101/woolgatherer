@@ -1,19 +1,32 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { buttonClass } from "@/components/ui";
-import { Field, Textarea, SubmitButton } from "@/components/form";
+import { buttonClass, cn } from "@/components/ui";
+import { Field, Input, Textarea, SubmitButton } from "@/components/form";
 import { submitFeedback } from "@/app/(app)/feedback/actions";
 
-/** "Send Feedback" — opens a small centered popup (not the side drawer). */
+const TYPES = [
+  { value: "bug", label: "Bug Report", icon: "🐞", hint: "Something isn't working right." },
+  { value: "suggestion", label: "Suggestion", icon: "💡", hint: "An idea to make FinanceOS better." },
+  { value: "note", label: "General Note", icon: "💬", hint: "Any other message or comment." },
+] as const;
+
+/** "Send Feedback" — centered popup with a type picker, subject, and attachment. */
 export function FeedbackButton() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [type, setType] = useState<string>("bug");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [state, formAction] = useActionState(submitFeedback, null);
 
   useEffect(() => {
-    if (state?.ok) setOpen(false);
+    if (state?.ok) {
+      setOpen(false);
+      setType("bug");
+      setFileName(null);
+    }
   }, [state]);
 
   useEffect(() => {
@@ -23,6 +36,8 @@ export function FeedbackButton() {
     if (open) document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  const activeHint = TYPES.find((t) => t.value === type)?.hint;
 
   return (
     <>
@@ -35,12 +50,12 @@ export function FeedbackButton() {
           <div
             role="dialog"
             aria-modal="true"
-            className="relative w-full max-w-md rounded-xl border border-border bg-surface shadow-xl"
+            className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl"
           >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Send Feedback</h2>
-                <p className="mt-0.5 text-sm text-muted">Spotted a bug or have an idea? Let us know.</p>
+                <p className="mt-0.5 text-sm text-muted">Goes straight to Athirah.</p>
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -50,19 +65,86 @@ export function FeedbackButton() {
                 ✕
               </button>
             </div>
-            <form action={formAction} className="flex flex-col gap-4 px-5 py-5">
-              <input type="hidden" name="page" value={pathname} />
-              <Field label="Your feedback" required>
-                <Textarea name="message" required placeholder="What's on your mind?" autoFocus />
-              </Field>
-              {state?.error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
-              )}
-              <div className="flex justify-end gap-2">
+
+            <form action={formAction} className="flex min-h-0 flex-col">
+              <div className="flex flex-col gap-4 overflow-y-auto px-5 py-5">
+                <input type="hidden" name="page" value={pathname} />
+                <input type="hidden" name="type" value={type} />
+
+                {/* Type picker */}
+                <div>
+                  <p className="mb-1.5 text-sm font-medium">Type</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TYPES.map((t) => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setType(t.value)}
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-lg border px-2 py-3 text-sm font-medium transition",
+                          type === t.value
+                            ? "border-transparent bg-gray-900 text-white"
+                            : "border-border bg-surface text-text hover:bg-gray-50",
+                        )}
+                      >
+                        <span className="text-lg leading-none">{t.icon}</span>
+                        <span className="text-center leading-tight">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {activeHint && <p className="mt-1.5 text-xs text-muted">{activeHint}</p>}
+                </div>
+
+                <Field label="Subject (optional)">
+                  <Input name="subject" placeholder="Brief summary…" maxLength={120} />
+                </Field>
+
+                <Field label="Message" required>
+                  <Textarea name="message" required placeholder="Describe it here…" autoFocus />
+                </Field>
+
+                {/* Attachment */}
+                <div>
+                  <p className="mb-1.5 text-sm font-medium">
+                    Attachment <span className="font-normal text-muted">(optional — screenshot or screen recording)</span>
+                  </p>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-muted hover:bg-gray-50">
+                    <span>📎</span>
+                    <span className="truncate">{fileName ?? "Attach a screenshot or screen recording"}</span>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      name="attachment"
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+                    />
+                  </label>
+                  {fileName && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileRef.current) fileRef.current.value = "";
+                        setFileName(null);
+                      }}
+                      className="mt-1 text-xs text-muted underline hover:text-text"
+                    >
+                      Remove attachment
+                    </button>
+                  )}
+                  <p className="mt-1 text-xs text-muted">Max ~10MB.</p>
+                </div>
+
+                {state?.error && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
                 <button type="button" onClick={() => setOpen(false)} className={buttonClass("secondary")}>
                   Cancel
                 </button>
-                <SubmitButton>Send</SubmitButton>
+                <SubmitButton>Send Feedback</SubmitButton>
               </div>
             </form>
           </div>
