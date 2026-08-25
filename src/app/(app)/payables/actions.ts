@@ -8,7 +8,8 @@ import type { ActionState } from "@/components/form";
 import type { RecurringPayable } from "@/lib/types";
 import { dueDatesForRule } from "@/lib/finance/payables";
 import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
-import { formatMYR } from "@/lib/finance/money";
+import { formatMYR, subMoney } from "@/lib/finance/money";
+import { recordCashSnapshot } from "@/lib/data/cashHistory";
 
 async function financeGuard() {
   const session = await getSession();
@@ -89,6 +90,9 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     // that amount — auto-create a payable to him so the debt is tracked.
     await maybeCreatePayback(supabase, session.userId, id, method_id, paid_amount);
 
+    // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account.
+    await maybeDeductFromBank(supabase, session.userId, method_id, paid_amount);
+
     refresh();
     return { ok: true };
   } catch (e) {
@@ -126,6 +130,37 @@ async function maybeCreatePayback(
     entity_type: "payable", entity_id: null, action: "payback_created",
     actor: userId, summary: `Owe ${PAYBACK_METHOD} ${formatMYR(amount)}`,
   });
+}
+
+/** Payments made via this method are debited from the named bank account. */
+const BANK_DEDUCT_METHOD = "CIMB Bank Transfer";
+const BANK_DEDUCT_ACCOUNT = "Main Operating Account";
+
+async function maybeDeductFromBank(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  methodId: string | null,
+  amount: number,
+) {
+  if (!methodId || amount <= 0) return;
+  const { data: method } = await supabase
+    .from("payment_methods").select("name").eq("id", methodId).single();
+  if (method?.name?.toLowerCase() !== BANK_DEDUCT_METHOD.toLowerCase()) return;
+
+  const { data: acc } = await supabase
+    .from("bank_accounts").select("id, current_balance").ilike("account_name", BANK_DEDUCT_ACCOUNT).single();
+  if (!acc) return;
+
+  const newBalance = subMoney(acc.current_balance as number, amount);
+  await supabase.from("bank_accounts").update({ current_balance: newBalance }).eq("id", acc.id);
+  await recordCashSnapshot(supabase);
+  await logActivity(supabase, {
+    entity_type: "bank_account", entity_id: acc.id, action: "auto_debit",
+    actor: userId, summary: `−${formatMYR(amount)} from ${BANK_DEDUCT_ACCOUNT} (payable paid)`,
+  });
+  revalidatePath("/settings/bank-accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/cashflow");
 }
 
 export async function cancelPayable(fd: FormData): Promise<void> {

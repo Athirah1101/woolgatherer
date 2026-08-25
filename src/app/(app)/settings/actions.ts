@@ -155,8 +155,9 @@ export async function reorderBankAccounts(orderedIds: string[]): Promise<void> {
   await Promise.all(
     orderedIds.map((id, i) => supabase.from("bank_accounts").update({ sort_order: i }).eq("id", id)),
   );
+  // Only revalidate this page — reordering doesn't change any totals, so
+  // skipping the dashboard revalidation keeps the drag feeling instant.
   revalidatePath("/settings/bank-accounts");
-  revalidatePath("/dashboard");
 }
 
 export async function saveUserAccess(_: ActionState, fd: FormData): Promise<ActionState> {

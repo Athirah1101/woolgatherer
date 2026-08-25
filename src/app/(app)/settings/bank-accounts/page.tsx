@@ -24,14 +24,10 @@ export default async function BankAccountsPage() {
           </div>
         }
       />
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />
-        </div>
-        <div className="lg:col-span-2">
-          <BankTrendChart points={cashHistory} />
-        </div>
+      <div className="mb-6 max-w-xs">
+        <SummaryCard label="Current Cash (active)" value={formatMYR(total)} tone="green" />
       </div>
+
       {accounts.length === 0 ? (
         <EmptyState
           title="No bank accounts yet."
@@ -41,6 +37,10 @@ export default async function BankAccountsPage() {
       ) : (
         <BankAccountsTable accounts={accounts} />
       )}
+
+      <div className="mt-6">
+        <BankTrendChart points={cashHistory} />
+      </div>
     </div>
   );
 }

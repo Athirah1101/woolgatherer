@@ -12,6 +12,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { SortControl, type SortOption } from "@/components/SortControl";
+import { SearchBox } from "@/components/SearchBox";
 import { cancelPayable, markPayablePaid, savePayable } from "./actions";
 
 export default async function PayablesPage({
@@ -42,8 +43,14 @@ export default async function PayablesPage({
   // ---- View filter: default hides paid so the list stays short ----
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
   const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
-  const filtered =
-    view === "all" ? rows : rows.filter((r) => r.payable.status === view);
+  const q = (sp.q ?? "").trim().toLowerCase();
+  let filtered = view === "all" ? rows : rows.filter((r) => r.payable.status === view);
+  if (q)
+    filtered = filtered.filter(
+      (r) =>
+        r.payable.payee?.toLowerCase().includes(q) ||
+        (r.payable.description ?? "").toLowerCase().includes(q),
+    );
   const VIEWS: { key: string; label: string; count: number }[] = [
     { key: "unpaid", label: "To Pay", count: unpaid.length },
     { key: "paid", label: "Paid", count: paidCount },
@@ -119,7 +126,10 @@ export default async function PayablesPage({
             </Link>
           ))}
         </div>
-        <SortControl options={SORTS} />
+        <div className="flex items-center gap-3">
+          <SearchBox placeholder="Search payee or description…" className="w-56" />
+          <SortControl options={SORTS} />
+        </div>
       </div>
 
       {rows.length === 0 ? (

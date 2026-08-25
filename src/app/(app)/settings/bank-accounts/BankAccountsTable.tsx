@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card, Chip } from "@/components/ui";
 import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
@@ -50,10 +50,11 @@ export function BankAccountsTable({ accounts }: { accounts: BankAccount[] }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Keep in sync if the server sends a new list (e.g. after an edit).
-  if (accounts.map((a) => a.id).join() !== items.map((a) => a.id).join() && dragIndex === null) {
-    setItems(accounts);
-  }
+  // Adopt the server list when it changes (e.g. after a balance edit), but NOT
+  // while a reorder is still saving — otherwise the optimistic order snaps back.
+  useEffect(() => {
+    if (!pending) setItems(accounts);
+  }, [accounts, pending]);
 
   function onDrop(target: number) {
     if (dragIndex === null || dragIndex === target) return setDragIndex(null);
