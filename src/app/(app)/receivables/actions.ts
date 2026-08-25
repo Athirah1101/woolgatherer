@@ -133,6 +133,21 @@ export async function updateReceivable(_: ActionState, fd: FormData): Promise<Ac
   }
 }
 
+const RECV_STATUSES = ["active","completed","cancelled","on_hold","stopped","on_time","delayed","cleared","others"];
+
+/** Quick inline status change from the main receivables table. */
+export async function updateReceivableStatus(id: string, status: string): Promise<void> {
+  const session = await financeGuard();
+  if (!id || !RECV_STATUSES.includes(status)) return;
+  const supabase = await createClient();
+  await supabase.from("receivables").update({ status }).eq("id", id);
+  await logActivity(supabase, {
+    entity_type: "receivable", entity_id: id, action: "status_updated",
+    actor: session.userId, summary: `Status → ${status}`,
+  });
+  refreshReceivableViews(id);
+}
+
 export async function saveScheduleRow(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     await financeGuard();

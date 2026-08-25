@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AttentionBadge, Card, Chip, EmptyState, StatusChip,
@@ -8,8 +8,9 @@ import {
 } from "@/components/ui";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate, daysUntil } from "@/lib/finance/dates";
-import { collectionStatusChip } from "@/lib/finance/display";
 import type { CollectionStatus } from "@/lib/finance/receivables";
+import { updateReceivableStatus } from "./actions";
+import { RECV_STATUS_OPTIONS, recvStatusLabel, recvStatusTone } from "./statusOptions";
 
 export interface RecvRowView {
   id: string;
@@ -46,13 +47,14 @@ const SORTS = [
   { key: "days", label: "Days Overdue (high→low)" },
   { key: "deal", label: "Deal Amount (high→low)" },
   { key: "client", label: "Client (A→Z)" },
-  { key: "next", label: "Next Payment Date" },
+  { key: "next", label: "Next Payment (soonest)" },
+  { key: "next_desc", label: "Next Payment (latest)" },
 ];
 
-const DEAL_STATUS_CHIP: Record<string, { label: string; tone: Tone }> = {
-  on_hold: { label: "On Hold", tone: "amber" },
-  stopped: { label: "Stopped", tone: "red" },
-  cancelled: { label: "Cancelled", tone: "gray" },
+// Left-border colour for the inline status <select>, keyed by tone.
+const STATUS_BORDER: Record<string, string> = {
+  green: "#10b981", orange: "#f97316", amber: "#f59e0b", red: "#ef4444",
+  blue: "#0ea5e9", indigo: "#6366f1", gray: "#9ca3af", neutral: "#9ca3af",
 };
 
 export function ReceivablesTable({
@@ -73,6 +75,13 @@ export function ReceivablesTable({
   const [pic, setPic] = useState("");
   const [hrdc, setHrdc] = useState("");
   const [sort, setSort] = useState("outstanding");
+  const [, startTransition] = useTransition();
+  const [statusOverride, setStatusOverride] = useState<Record<string, string>>({});
+
+  function changeStatus(id: string, value: string) {
+    setStatusOverride((m) => ({ ...m, [id]: value }));
+    startTransition(() => updateReceivableStatus(id, value));
+  }
 
   const filtered = useMemo(() => {
     let r = rows;
@@ -105,6 +114,7 @@ export function ReceivablesTable({
         case "deal": return b.dealAmount - a.dealAmount;
         case "client": return a.client.localeCompare(b.client);
         case "next": return (a.nextDate ?? "9999").localeCompare(b.nextDate ?? "9999");
+        case "next_desc": return (b.nextDate ?? "0000").localeCompare(a.nextDate ?? "0000");
         default: return b.outstanding - a.outstanding;
       }
     });
@@ -184,8 +194,7 @@ export function ReceivablesTable({
             </THead>
             <TBody>
               {filtered.map((r) => {
-                const status = collectionStatusChip(r.collectionStatus);
-                const override = DEAL_STATUS_CHIP[r.dealStatus];
+                const curStatus = statusOverride[r.id] ?? r.dealStatus;
                 const attn =
                   r.overdue > 0
                     ? { label: `${r.daysOverdue} day${r.daysOverdue === 1 ? "" : "s"} overdue`, tone: "red" as Tone }
@@ -215,7 +224,24 @@ export function ReceivablesTable({
                       ) : <span className="text-muted">—</span>}
                     </TD>
                     <TD>
-                      {override ? <StatusChip label={override.label} tone={override.tone} /> : <StatusChip label={status.label} tone={status.tone} />}
+                      {isSalesView ? (
+                        <StatusChip label={recvStatusLabel(curStatus)} tone={recvStatusTone[curStatus] ?? "gray"} />
+                      ) : (
+                        <select
+                          value={curStatus}
+                          onChange={(e) => changeStatus(r.id, e.target.value)}
+                          className={cn(
+                            "rounded-md border px-2 py-1 text-xs font-medium outline-none focus:border-brand",
+                            "border-l-4 bg-surface",
+                          )}
+                          style={{ borderLeftColor: STATUS_BORDER[recvStatusTone[curStatus] ?? "gray"] }}
+                          title="Change status"
+                        >
+                          {RECV_STATUS_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      )}
                     </TD>
                     <TD><AttentionBadge label={attn.label} tone={attn.tone} /></TD>
                     <TD className="text-muted">
