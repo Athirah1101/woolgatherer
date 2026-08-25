@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getRecurringRules } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
@@ -121,7 +122,9 @@ export default async function RecurringPage({
               {rules.map((r) => (
                 <TR key={r.id}>
                   <TD className="font-medium">
-                    {r.name}
+                    <Link href={`/settings/recurring/${r.id}`} className="hover:text-brand hover:underline">
+                      {r.name}
+                    </Link>
                     {r.payee && r.payee !== r.name && <div className="text-xs text-muted">{r.payee}</div>}
                   </TD>
                   <TD className="text-muted">{categoryName(cats, r.category_id)}</TD>
