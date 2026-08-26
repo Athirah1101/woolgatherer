@@ -5,7 +5,7 @@ import { Card, cn } from "@/components/ui";
 import { formatMYR, formatMYRCompact } from "@/lib/finance/money";
 import type { CashPoint } from "@/lib/data/cashHistory";
 
-type View = "weekly" | "monthly";
+type View = "daily" | "weekly" | "monthly";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -26,7 +26,10 @@ interface Bucket {
 function bucketize(points: CashPoint[], view: View): Bucket[] {
   const map = new Map<string, { label: string; total: number }>();
   for (const p of points) {
-    if (view === "weekly") {
+    if (view === "daily") {
+      const d = new Date(`${p.day}T00:00:00`);
+      map.set(p.day, { label: `${d.getDate()} ${MONTHS[d.getMonth()]}`, total: p.total });
+    } else if (view === "weekly") {
       const ws = weekStart(p.day);
       const d = new Date(`${ws}T00:00:00`);
       map.set(ws, { label: `${d.getDate()} ${MONTHS[d.getMonth()]}`, total: p.total });
@@ -39,11 +42,11 @@ function bucketize(points: CashPoint[], view: View): Bucket[] {
   const buckets = [...map.entries()]
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))
     .map(([key, v]) => ({ key, label: v.label, total: v.total }));
-  return buckets.slice(-12); // last 12 periods
+  return buckets.slice(view === "daily" ? -14 : -12); // last 14 days / 12 periods
 }
 
 export function BankTrendChart({ points }: { points: CashPoint[] }) {
-  const [view, setView] = useState<View>("weekly");
+  const [view, setView] = useState<View>("daily");
   const buckets = useMemo(() => bucketize(points, view), [points, view]);
 
   if (points.length === 0) {
@@ -68,7 +71,7 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
           <p className="mt-0.5 text-2xl font-semibold tabular-nums">{formatMYR(latest)}</p>
         </div>
         <div className="flex rounded-lg border border-border p-0.5 text-sm">
-          {(["weekly", "monthly"] as View[]).map((v) => (
+          {(["daily", "weekly", "monthly"] as View[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
