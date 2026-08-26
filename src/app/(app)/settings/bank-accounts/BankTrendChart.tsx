@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, cn } from "@/components/ui";
 import { formatMYR, formatMYRCompact } from "@/lib/finance/money";
 import type { CashPoint } from "@/lib/data/cashHistory";
@@ -49,6 +49,20 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
   const [view, setView] = useState<View>("daily");
   const buckets = useMemo(() => bucketize(points, view), [points, view]);
 
+  // Measure the plot area so the line is drawn in real pixels (uniform stroke,
+  // no aspect-ratio distortion).
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = plotRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) =>
+      setSize({ w: e.contentRect.width, h: e.contentRect.height }),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   if (points.length === 0) {
     return (
       <Card>
@@ -90,7 +104,10 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
         const n = buckets.length;
         const barH = (b: Bucket) => Math.max(4, (b.total / max) * 100);
         const cx = (i: number) => ((i + 0.5) / n) * 100;
-        const linePoints = buckets.map((b, i) => `${cx(i)},${100 - barH(b)}`).join(" ");
+        // Line in real pixels (uniform stroke, no stretch distortion).
+        const linePoints = buckets
+          .map((b, i) => `${(cx(i) / 100) * size.w},${size.h - (barH(b) / 100) * size.h}`)
+          .join(" ");
         return (
           <div>
             {/* value labels */}
@@ -102,7 +119,7 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
               ))}
             </div>
             {/* plot: bars + line + dots share one coordinate space */}
-            <div className="relative h-44">
+            <div ref={plotRef} className="relative h-44">
               <div className="flex h-full items-end">
                 {buckets.map((b) => (
                   <div key={b.key} className="flex h-full min-w-0 flex-1 items-end justify-center">
@@ -114,11 +131,12 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
                   </div>
                 ))}
               </div>
-              {n > 1 && (
+              {n > 1 && size.w > 0 && (
                 <svg
-                  className="pointer-events-none absolute inset-0 h-full w-full text-brand"
-                  preserveAspectRatio="none"
-                  viewBox="0 0 100 100"
+                  className="pointer-events-none absolute inset-0 text-brand"
+                  width={size.w}
+                  height={size.h}
+                  viewBox={`0 0 ${size.w} ${size.h}`}
                 >
                   <polyline
                     points={linePoints}
@@ -127,8 +145,6 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
                     strokeWidth={2}
                     strokeLinejoin="round"
                     strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                    style={{ vectorEffect: "non-scaling-stroke" }}
                   />
                 </svg>
               )}
