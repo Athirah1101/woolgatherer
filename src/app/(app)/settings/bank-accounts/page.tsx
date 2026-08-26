@@ -27,7 +27,7 @@ export default async function BankAccountsPage() {
     <div>
       <PageHeader
         title="Bank Accounts"
-        subtitle="Stripe & Airwallex (MYR) auto-update daily at midnight (MYT). Press “Sync balances now” anytime for the latest. Current Cash on the Dashboard sums the active accounts."
+        subtitle="Stripe, Airwallex & Payex (MYR) auto-update daily at midnight (MYT). Press “Sync balances now” anytime for the latest. Current Cash on the Dashboard sums the active accounts."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SyncBalancesButton />
