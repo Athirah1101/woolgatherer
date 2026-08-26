@@ -128,6 +128,7 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
                     strokeLinejoin="round"
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
+                    style={{ vectorEffect: "non-scaling-stroke" }}
                   />
                 </svg>
               )}
