@@ -86,11 +86,11 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
         </div>
       </div>
 
-      <div className="flex h-48 items-end gap-1.5 overflow-x-auto">
+      <div className="flex h-48 items-stretch gap-1.5 overflow-x-auto">
         {buckets.map((b) => (
-          <div key={b.key} className="flex min-w-8 flex-1 flex-col items-center gap-1">
+          <div key={b.key} className="flex h-full min-w-8 flex-1 flex-col items-center gap-1">
             <span className="text-[10px] font-medium tabular-nums text-muted">{formatMYRCompact(b.total)}</span>
-            <div className="flex w-full flex-1 items-end">
+            <div className="flex w-full min-h-0 flex-1 items-end">
               <div
                 className="w-full rounded-t bg-brand/80 transition-all hover:bg-brand"
                 style={{ height: `${Math.max(4, (b.total / max) * 100)}%` }}
