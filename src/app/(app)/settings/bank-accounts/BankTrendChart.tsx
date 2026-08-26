@@ -90,9 +90,9 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
         {buckets.map((b) => (
           <div key={b.key} className="flex h-full min-w-8 flex-1 flex-col items-center gap-1">
             <span className="text-[10px] font-medium tabular-nums text-muted">{formatMYRCompact(b.total)}</span>
-            <div className="flex w-full min-h-0 flex-1 items-end">
+            <div className="flex w-full min-h-0 flex-1 items-end justify-center">
               <div
-                className="w-full rounded-t bg-brand/80 transition-all hover:bg-brand"
+                className="w-full max-w-[36px] rounded-t bg-brand/80 transition-all hover:bg-brand"
                 style={{ height: `${Math.max(4, (b.total / max) * 100)}%` }}
                 title={`${b.label}: ${formatMYR(b.total)}`}
               />
