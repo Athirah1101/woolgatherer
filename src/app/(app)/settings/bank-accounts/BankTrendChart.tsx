@@ -86,21 +86,71 @@ export function BankTrendChart({ points }: { points: CashPoint[] }) {
         </div>
       </div>
 
-      <div className="flex h-48 items-stretch gap-1.5 overflow-x-auto">
-        {buckets.map((b) => (
-          <div key={b.key} className="flex h-full min-w-8 flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] font-medium tabular-nums text-muted">{formatMYRCompact(b.total)}</span>
-            <div className="flex w-full min-h-0 flex-1 items-end justify-center">
-              <div
-                className="w-full max-w-[36px] rounded-t bg-brand/80 transition-all hover:bg-brand"
-                style={{ height: `${Math.max(4, (b.total / max) * 100)}%` }}
-                title={`${b.label}: ${formatMYR(b.total)}`}
-              />
+      {(() => {
+        const n = buckets.length;
+        const barH = (b: Bucket) => Math.max(4, (b.total / max) * 100);
+        const cx = (i: number) => ((i + 0.5) / n) * 100;
+        const linePoints = buckets.map((b, i) => `${cx(i)},${100 - barH(b)}`).join(" ");
+        return (
+          <div>
+            {/* value labels */}
+            <div className="flex">
+              {buckets.map((b) => (
+                <span key={b.key} className="min-w-0 flex-1 text-center text-[10px] font-medium tabular-nums text-muted">
+                  {formatMYRCompact(b.total)}
+                </span>
+              ))}
             </div>
-            <span className="whitespace-nowrap text-[10px] text-muted">{b.label}</span>
+            {/* plot: bars + line + dots share one coordinate space */}
+            <div className="relative h-44">
+              <div className="flex h-full items-end">
+                {buckets.map((b) => (
+                  <div key={b.key} className="flex h-full min-w-0 flex-1 items-end justify-center">
+                    <div
+                      className="w-full max-w-[36px] rounded-t bg-brand/25 transition-all hover:bg-brand/40"
+                      style={{ height: `${barH(b)}%` }}
+                      title={`${b.label}: ${formatMYR(b.total)}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              {n > 1 && (
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full text-brand"
+                  preserveAspectRatio="none"
+                  viewBox="0 0 100 100"
+                >
+                  <polyline
+                    points={linePoints}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
+              )}
+              {buckets.map((b, i) => (
+                <div
+                  key={b.key}
+                  className="pointer-events-none absolute h-2 w-2 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-brand bg-surface"
+                  style={{ left: `${cx(i)}%`, bottom: `${barH(b)}%` }}
+                  title={`${b.label}: ${formatMYR(b.total)}`}
+                />
+              ))}
+            </div>
+            {/* date labels */}
+            <div className="flex">
+              {buckets.map((b) => (
+                <span key={b.key} className="min-w-0 flex-1 whitespace-nowrap text-center text-[10px] text-muted">
+                  {b.label}
+                </span>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
     </Card>
   );
 }
