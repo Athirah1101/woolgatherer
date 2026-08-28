@@ -175,13 +175,18 @@ interface PayexTxn {
   base_amount?: number | string;
   amount?: number | string;
   amount_refunded?: number | string;
+  txn_date?: string;
 }
 interface PayexSettlement {
   currency?: string;
   base_currency?: string;
   gross_amount?: number | string;
   base_amount?: number | string;
+  txn_date?: string; // date of the underlying transaction being settled
 }
+
+/** First 8 chars (yyyyMMdd) of a Payex date like "20260818" or "20260818193908". */
+const dayKey = (s: unknown): string => (typeof s === "string" ? s.replace(/-/g, "").slice(0, 8) : "");
 
 export interface PayexSyncResult {
   balance: number;
@@ -214,17 +219,27 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     statusCount.set(st || "(blank)", (statusCount.get(st || "(blank)") ?? 0) + 1);
     if ((t.currency ?? MYR).toUpperCase() !== MYR) continue;
     if (!COLLECTED_STATUSES.has(st)) continue;
+    const txnDay = dayKey(t.txn_date);
+    if (txnDay && txnDay < start) continue; // outside our window
     const gross = toNum(t.amount ?? t.base_amount);
     collected += gross - toNum(t.amount_refunded);
     collectedCount++;
   }
 
   // Settled out: MYR settlements, gross amount (matches the gross collected).
+  // Only subtract a settlement whose UNDERLYING transaction is also in our
+  // window (txn_date >= anchor). Payex settles with a 1–2 day lag, so payouts
+  // for sales made before the anchor must be ignored — otherwise we'd subtract
+  // money we never counted as collected and the balance would go negative.
   let settled = 0;
+  let settledCount = 0;
   for (const s of settlements) {
     const cur = (s.currency ?? s.base_currency ?? MYR).toUpperCase();
     if (cur !== MYR) continue;
+    const txnDay = dayKey(s.txn_date);
+    if (txnDay && txnDay < start) continue; // pre-anchor sale — not ours to subtract
     settled += toNum(s.gross_amount ?? s.base_amount);
+    settledCount++;
   }
 
   const balance = round2(anchorBalance + collected - settled);
@@ -237,7 +252,7 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     .map(([s, n]) => `${s}:${n}`)
     .join(" ");
   const base = anchorBalance ? `anchor ${round2(anchorBalance)} + ` : "";
-  const detail = `${base}${collectedCount} collected − ${settlements.length} settlements (since ${start}) · statuses ${breakdown}`;
+  const detail = `${base}${collectedCount} collected − ${settledCount} settlements (since ${start}) · statuses ${breakdown}`;
 
   return { balance, collected: round2(collected), settled: round2(settled), asOf, detail };
 }
