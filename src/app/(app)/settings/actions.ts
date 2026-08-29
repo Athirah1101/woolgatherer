@@ -103,10 +103,9 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
 }
 
 /** Manually pull the latest balances from every configured provider. */
-export async function syncBalancesNow(
-  _: ActionState & { detail?: string },
-  _fd: FormData,
-): Promise<ActionState & { detail?: string }> {
+type SyncState = { ok?: boolean; error?: string; detail?: string } | null;
+
+export async function syncBalancesNow(_: SyncState, _fd: FormData): Promise<SyncState> {
   try {
     const session = await requireFinance();
     const results = await syncAllBalances();
