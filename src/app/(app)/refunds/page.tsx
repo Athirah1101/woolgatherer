@@ -9,6 +9,7 @@ import {
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { refundStatusChip, refundColorTone } from "@/lib/finance/display";
+import { SearchBox } from "@/components/SearchBox";
 import { SinceTimer } from "./SinceTimer";
 import { RefundCaseForm, RecordRefundForm } from "./RefundForms";
 import { REFUND_TYPES, refundTypeLabel } from "./refundTypes";
@@ -30,7 +31,16 @@ export default async function RefundsPage({
   );
 
   const typeFilter = REFUND_TYPES.some((t) => t.value === sp.type) ? sp.type : "all";
-  const cases = typeFilter === "all" ? allCases : allCases.filter((r) => r.claim.refund_type === typeFilter);
+  const typeFiltered = typeFilter === "all" ? allCases : allCases.filter((r) => r.claim.refund_type === typeFilter);
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const cases = q
+    ? typeFiltered.filter(
+        (r) =>
+          r.claim.client_name?.toLowerCase().includes(q) ||
+          refundTypeLabel(r.claim.refund_type).toLowerCase().includes(q) ||
+          (r.claim.notes ?? "").toLowerCase().includes(q),
+      )
+    : typeFiltered;
 
   // Active = HRDC funds received but not yet fully refunded — these get a live timer.
   const active = cases.filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0);
@@ -52,7 +62,8 @@ export default async function RefundsPage({
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
         {[{ value: "all", label: "All" }, ...REFUND_TYPES].map((t) => {
           const count =
             t.value === "all" ? allCases.length : allCases.filter((r) => r.claim.refund_type === t.value).length;
@@ -69,6 +80,8 @@ export default async function RefundsPage({
             </Link>
           );
         })}
+        </div>
+        <SearchBox placeholder="Search client, type or notes…" className="w-56" />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -10,7 +10,7 @@ export function SyncBalancesButton() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state?.ok) setMsg("✓ Balances updated");
+    if (state?.ok) setMsg(`✓ ${state.detail ?? "Balances updated"}`);
     else if (state?.error) setMsg(`⚠ ${state.error}`);
   }, [state]);
 

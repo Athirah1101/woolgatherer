@@ -103,7 +103,10 @@ export async function saveBankAccount(_: ActionState, fd: FormData): Promise<Act
 }
 
 /** Manually pull the latest balances from every configured provider. */
-export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+export async function syncBalancesNow(
+  _: ActionState & { detail?: string },
+  _fd: FormData,
+): Promise<ActionState & { detail?: string }> {
   try {
     const session = await requireFinance();
     const results = await syncAllBalances();
@@ -146,7 +149,7 @@ export async function syncBalancesNow(_: ActionState, _fd: FormData): Promise<Ac
     // Show the full per-provider summary whenever anything isn't OK, so the
     // exact culprit (bad key, wrong currency, missing config) is visible.
     if (anyProblem) return { error: summary };
-    return { ok: true };
+    return { ok: true, detail: summary };
   } catch (e) {
     return { error: (e as Error).message };
   }
