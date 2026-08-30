@@ -41,6 +41,7 @@ const COLLECTED_STATUSES = new Set([
   "capture",
   "captured",
   "sale",
+  "sales", // Payex labels a successful transaction "Sales"
   "approved",
   "done",
 ]);
