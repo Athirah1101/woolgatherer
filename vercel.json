@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/stripe-balance",
       "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/lark-daily",
+      "schedule": "0 4 * * *"
     }
   ]
 }
