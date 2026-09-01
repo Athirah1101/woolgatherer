@@ -9,11 +9,12 @@ import {
 } from "@/components/ui";
 import { DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
-import { formatDate, todayISO } from "@/lib/finance/dates";
+import { daysOverdue, formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { owedAmount } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
 import { SearchBox } from "@/components/SearchBox";
+import { AgingChart, buildAging } from "@/components/AgingChart";
 import { cancelPayable, markPayablePaid, savePayable } from "./actions";
 
 export default async function PayablesPage({
@@ -31,7 +32,15 @@ export default async function PayablesPage({
   // "Still owed" = unpaid or partially paid; metrics use the remaining amount.
   const owing = (r: { payable: Payable }) =>
     r.payable.status === "unpaid" || r.payable.status === "partially_paid";
+  const today = todayISO();
   const unpaid = rows.filter(owing);
+  // Aged payables: each still-owed bill bucketed by how overdue it is.
+  const agingPayables = buildAging(
+    unpaid.map((r) => ({
+      amount: owedAmount(r.payable),
+      daysOverdue: r.payable.due_date ? daysOverdue(r.payable.due_date, today) : 0,
+    })),
+  );
   const overdue = sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => owedAmount(r.payable)));
   const dueToday = sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => owedAmount(r.payable)));
   const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => owedAmount(r.payable)));
@@ -115,6 +124,10 @@ export default async function PayablesPage({
           />
         </div>
       )}
+
+      <div className="mb-6">
+        <AgingChart title="Aged Payables" buckets={agingPayables} />
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">

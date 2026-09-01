@@ -8,6 +8,7 @@ import {
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { hrdcStageChip, refundColorTone } from "@/lib/finance/display";
+import { SearchBox } from "@/components/SearchBox";
 
 const TABS = [
   { key: "all", label: "All Claims" },
@@ -28,6 +29,7 @@ export default async function HrdcPage({
   const isFinance = profile.role === "finance";
   const sp = await searchParams;
   const tab = sp.tab ?? "all";
+  const q = (sp.q ?? "").trim().toLowerCase();
   const rows = await getHrdcRows();
 
   const refundAmountDue = sumMoney(rows.map((r) => r.refund.remaining));
@@ -41,7 +43,10 @@ export default async function HrdcPage({
   const toSubmit = rows.filter((r) => r.tab === "claim_to_submit").length;
   const queriesOpen = rows.filter((r) => r.query.open).length;
 
-  const shown = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
+  const tabbed = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
+  const shown = q
+    ? tabbed.filter((r) => r.claim.client_name?.toLowerCase().includes(q))
+    : tabbed;
 
   return (
     <div>
@@ -60,7 +65,8 @@ export default async function HrdcPage({
         <SummaryCard label="Queries Open" value={queriesOpen} tone={queriesOpen ? "red" : "neutral"} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
         {TABS.map((t) => {
           const count =
             t.key === "all" ? rows.length : rows.filter((r) => r.tab === t.key).length;
@@ -77,6 +83,8 @@ export default async function HrdcPage({
             </Link>
           );
         })}
+        </div>
+        <SearchBox placeholder="Search client…" className="w-56" />
       </div>
 
       {shown.length === 0 ? (

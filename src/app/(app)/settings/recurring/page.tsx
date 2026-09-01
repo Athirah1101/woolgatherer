@@ -11,6 +11,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
+import { SearchBox } from "@/components/SearchBox";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
 import { FrequencyFields } from "./FrequencyFields";
 
@@ -54,7 +55,8 @@ export default async function RecurringPage({
   ]);
 
   const sort = RULE_SORTS.some((s) => s.value === sp.sort) ? sp.sort! : "name_az";
-  const rules = [...allRules].sort((a, b) => {
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const sorted = [...allRules].sort((a, b) => {
     switch (sort) {
       case "name_za": return b.name.localeCompare(a.name);
       case "amount_desc": return b.default_amount - a.default_amount;
@@ -63,6 +65,11 @@ export default async function RecurringPage({
       default: return a.name.localeCompare(b.name);
     }
   });
+  const rules = q
+    ? sorted.filter(
+        (r) => r.name.toLowerCase().includes(q) || (r.payee ?? "").toLowerCase().includes(q),
+      )
+    : sorted;
 
   // ---- Overview / forecast ----
   const today = todayISO();
@@ -97,8 +104,9 @@ export default async function RecurringPage({
         <SummaryCard label="Active Rules" value={activeRules.length} tone="green" sub={`${rules.length} total`} />
       </div>
 
-      {rules.length > 0 && (
-        <div className="mb-3 flex justify-end">
+      {allRules.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+          <SearchBox placeholder="Search name or payee…" className="w-56" />
           <SortControl options={RULE_SORTS} />
         </div>
       )}

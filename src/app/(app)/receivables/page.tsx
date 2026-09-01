@@ -4,6 +4,7 @@ import { getReceivableRows } from "@/lib/data/receivables";
 import { getSalesPics } from "@/lib/data/refs";
 import { PageHeader } from "@/components/ui";
 import { todayISO } from "@/lib/finance/dates";
+import { AgingChart, buildAging } from "@/components/AgingChart";
 import { NewReceivable } from "./NewReceivable";
 import { ReceivablesTable, type RecvRowView } from "./ReceivablesTable";
 
@@ -40,6 +41,15 @@ export default async function ReceivablesPage({
     remarks: r.remarks,
   }));
 
+  // Aged receivables: split each deal's outstanding into its overdue portion
+  // (bucketed by how late) and its not-yet-due portion (Current).
+  const agingReceivables = buildAging(
+    rows.flatMap((r) => [
+      { amount: r.overdue, daysOverdue: r.daysOverdue },
+      { amount: Math.max(0, r.outstanding - r.overdue), daysOverdue: 0 },
+    ]),
+  );
+
   return (
     <div>
       <PageHeader
@@ -63,6 +73,12 @@ export default async function ReceivablesPage({
               {p}
             </Link>
           ))}
+        </div>
+      )}
+
+      {!isSalesView && (
+        <div className="mb-6">
+          <AgingChart title="Aged Receivables" buckets={agingReceivables} />
         </div>
       )}
 

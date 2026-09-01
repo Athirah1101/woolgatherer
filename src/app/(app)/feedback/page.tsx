@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, Chip, EmptyState, PageHeader } from "@/components/ui";
 import { InlineSubmit } from "@/components/form";
 import { formatDateTime } from "@/lib/finance/dates";
+import { SearchBox } from "@/components/SearchBox";
 import { resolveFeedback } from "./actions";
 
 interface FeedbackRow {
@@ -24,9 +25,15 @@ const TYPE_META: Record<string, { label: string; tone: "red" | "amber" | "blue" 
   note: { label: "💬 Note", tone: "blue" },
 };
 
-export default async function FeedbackPage() {
+export default async function FeedbackPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().toLowerCase();
   const supabase = await createClient();
 
   const [{ data: rows }, { data: profs }] = await Promise.all([
@@ -41,6 +48,16 @@ export default async function FeedbackPage() {
   );
   const items = (rows ?? []) as FeedbackRow[];
   const open = items.filter((f) => !f.resolved);
+  const shown = q
+    ? items.filter((f) => {
+        const submitter = f.submitted_by ? nameById.get(f.submitted_by) ?? "" : "";
+        return (
+          f.message.toLowerCase().includes(q) ||
+          (f.subject ?? "").toLowerCase().includes(q) ||
+          submitter.toLowerCase().includes(q)
+        );
+      })
+    : items;
 
   // Signed, short-lived URLs for any attachments (private bucket).
   const attachmentUrls = new Map<string, string>();
@@ -66,12 +83,20 @@ export default async function FeedbackPage() {
       <PageHeader
         title="Feedback"
         subtitle={`${open.length} open · from anyone using FinanceOS.`}
+        actions={<SearchBox placeholder="Search feedback…" className="w-56" />}
       />
-      {items.length === 0 ? (
-        <EmptyState title="No feedback yet." message="Feedback submitted via the “Send Feedback” button appears here." />
+      {shown.length === 0 ? (
+        <EmptyState
+          title={items.length === 0 ? "No feedback yet." : "No matching feedback."}
+          message={
+            items.length === 0
+              ? "Feedback submitted via the “Send Feedback” button appears here."
+              : "No feedback matches your search."
+          }
+        />
       ) : (
         <div className="space-y-3">
-          {items.map((f) => (
+          {shown.map((f) => (
             <Card key={f.id} className={f.resolved ? "opacity-60" : undefined}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
