@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AttentionBadge, Card, Chip, EmptyState, StatusChip,
@@ -73,6 +73,7 @@ export function ReceivablesTable({
   showSalesPic: boolean;
 }) {
   const [quick, setQuick] = useState("");
+  const [groupBy, setGroupBy] = useState(""); // "" | pic | status | deal | hrdc
   const [q, setQ] = useState("");
   const [pic, setPic] = useState("");
   const [hrdc, setHrdc] = useState("");
@@ -192,6 +193,84 @@ export function ReceivablesTable({
     );
   };
 
+  // ---- Optional group-by (spreadsheet-style sections with subtotals) ----
+  const dealLabel = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const colSpan = isSalesView ? 10 : 11;
+  const groups = useMemo(() => {
+    if (!groupBy) return null;
+    const keyOf = (r: RecvRowView) =>
+      groupBy === "pic" ? r.salesPic || "Unassigned"
+      : groupBy === "status" ? recvStatusLabel(r.collectionStatus)
+      : groupBy === "deal" ? dealLabel(r.dealStatus)
+      : r.hrdc ? "HRDC" : "Non-HRDC";
+    const m = new Map<string, RecvRowView[]>();
+    for (const r of filtered) {
+      const k = keyOf(r);
+      const arr = m.get(k);
+      if (arr) arr.push(r);
+      else m.set(k, [r]);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered, groupBy]);
+
+  const renderRow = (r: RecvRowView) => {
+    const curStatus = statusOverride[r.id] ?? r.dealStatus;
+    const attn =
+      r.overdue > 0
+        ? { label: `${r.daysOverdue} day${r.daysOverdue === 1 ? "" : "s"} overdue`, tone: "red" as Tone }
+        : r.nextDate && r.nextAmount > 0 && daysUntil(r.nextDate, today) <= 7
+        ? { label: `Due ${relative(r.nextDate, today)}`, tone: (daysUntil(r.nextDate, today) <= 2 ? "amber" : "blue") as Tone }
+        : { label: "—", tone: "gray" as Tone };
+    return (
+      <TR key={r.id}>
+        <TD className="font-medium">
+          <Link href={`/receivables/${r.id}`} className="hover:text-brand hover:underline">{r.client}</Link>
+          {r.hrdc && <Chip tone="indigo" className="ml-2">HRDC</Chip>}
+        </TD>
+        <TD className="text-muted">{r.product ?? "—"}</TD>
+        {!isSalesView && <TD>{r.salesPic ?? "—"}</TD>}
+        <TD right>{formatMYR(r.dealAmount)}</TD>
+        <TD right className="text-emerald-700">{formatMYR(r.paid)}</TD>
+        <TD right className="font-medium">{formatMYR(r.outstanding)}</TD>
+        <TD right className={r.overdue > 0 ? "font-medium text-red-600" : "text-muted"}>
+          {r.overdue > 0 ? formatMYR(r.overdue) : "—"}
+        </TD>
+        <TD>
+          {r.nextDate ? (
+            <div className="whitespace-nowrap">
+              <div>{formatDate(r.nextDate)}</div>
+              <div className="text-xs text-muted">{formatMYR(r.nextAmount)}</div>
+            </div>
+          ) : <span className="text-muted">—</span>}
+        </TD>
+        <TD>
+          {isSalesView ? (
+            <StatusChip label={recvStatusLabel(curStatus)} tone={recvStatusTone[curStatus] ?? "gray"} />
+          ) : (
+            <select
+              value={curStatus}
+              onChange={(e) => changeStatus(r.id, e.target.value)}
+              className={cn(
+                "rounded-md border px-2 py-1 text-xs font-medium outline-none focus:border-brand",
+                "border-l-4 bg-surface",
+              )}
+              style={{ borderLeftColor: STATUS_BORDER[recvStatusTone[curStatus] ?? "gray"] }}
+              title="Change status"
+            >
+              {RECV_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          )}
+        </TD>
+        <TD><AttentionBadge label={attn.label} tone={attn.tone} /></TD>
+        <TD className="text-muted">
+          <span className="block max-w-[16rem] truncate" title={r.remarks ?? ""}>{r.remarks ?? "—"}</span>
+        </TD>
+      </TR>
+    );
+  };
+
   return (
     <div>
       <Card className="mb-6 border-l-4 border-l-amber-400">
@@ -267,7 +346,19 @@ export function ReceivablesTable({
             <option value="yes">HRDC only</option>
             <option value="no">Non-HRDC only</option>
           </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="ml-auto rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+            className="ml-auto rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+            title="Group rows (like a spreadsheet)"
+          >
+            <option value="">No grouping</option>
+            {showSalesPic && <option value="pic">Group by Sales PIC</option>}
+            <option value="status">Group by Collection Status</option>
+            <option value="deal">Group by Deal Status</option>
+            <option value="hrdc">Group by HRDC</option>
+          </select>
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">
             {SORTS.map((s) => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
           </select>
         </div>
@@ -294,63 +385,20 @@ export function ReceivablesTable({
               </TR>
             </THead>
             <TBody>
-              {filtered.map((r) => {
-                const curStatus = statusOverride[r.id] ?? r.dealStatus;
-                const attn =
-                  r.overdue > 0
-                    ? { label: `${r.daysOverdue} day${r.daysOverdue === 1 ? "" : "s"} overdue`, tone: "red" as Tone }
-                    : r.nextDate && r.nextAmount > 0 && daysUntil(r.nextDate, today) <= 7
-                    ? { label: `Due ${relative(r.nextDate, today)}`, tone: (daysUntil(r.nextDate, today) <= 2 ? "amber" : "blue") as Tone }
-                    : { label: "—", tone: "gray" as Tone };
-                return (
-                  <TR key={r.id}>
-                    <TD className="font-medium">
-                      <Link href={`/receivables/${r.id}`} className="hover:text-brand hover:underline">{r.client}</Link>
-                      {r.hrdc && <Chip tone="indigo" className="ml-2">HRDC</Chip>}
-                    </TD>
-                    <TD className="text-muted">{r.product ?? "—"}</TD>
-                    {!isSalesView && <TD>{r.salesPic ?? "—"}</TD>}
-                    <TD right>{formatMYR(r.dealAmount)}</TD>
-                    <TD right className="text-emerald-700">{formatMYR(r.paid)}</TD>
-                    <TD right className="font-medium">{formatMYR(r.outstanding)}</TD>
-                    <TD right className={r.overdue > 0 ? "font-medium text-red-600" : "text-muted"}>
-                      {r.overdue > 0 ? formatMYR(r.overdue) : "—"}
-                    </TD>
-                    <TD>
-                      {r.nextDate ? (
-                        <div className="whitespace-nowrap">
-                          <div>{formatDate(r.nextDate)}</div>
-                          <div className="text-xs text-muted">{formatMYR(r.nextAmount)}</div>
-                        </div>
-                      ) : <span className="text-muted">—</span>}
-                    </TD>
-                    <TD>
-                      {isSalesView ? (
-                        <StatusChip label={recvStatusLabel(curStatus)} tone={recvStatusTone[curStatus] ?? "gray"} />
-                      ) : (
-                        <select
-                          value={curStatus}
-                          onChange={(e) => changeStatus(r.id, e.target.value)}
-                          className={cn(
-                            "rounded-md border px-2 py-1 text-xs font-medium outline-none focus:border-brand",
-                            "border-l-4 bg-surface",
-                          )}
-                          style={{ borderLeftColor: STATUS_BORDER[recvStatusTone[curStatus] ?? "gray"] }}
-                          title="Change status"
-                        >
-                          {RECV_STATUS_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      )}
-                    </TD>
-                    <TD><AttentionBadge label={attn.label} tone={attn.tone} /></TD>
-                    <TD className="text-muted">
-                      <span className="block max-w-[16rem] truncate" title={r.remarks ?? ""}>{r.remarks ?? "—"}</span>
-                    </TD>
-                  </TR>
-                );
-              })}
+              {groups
+                ? groups.map(([name, rs]) => (
+                    <Fragment key={name}>
+                      <tr className="border-t border-border bg-gray-50">
+                        <td colSpan={colSpan} className="px-4 py-2 text-sm">
+                          <span className="font-semibold">{name}</span>
+                          <span className="text-muted"> · {rs.length} deal{rs.length === 1 ? "" : "s"} · outstanding </span>
+                          <span className="font-medium tabular-nums">{formatMYR(sumMoney(rs.map((r) => r.outstanding)))}</span>
+                        </td>
+                      </tr>
+                      {rs.map(renderRow)}
+                    </Fragment>
+                  ))
+                : filtered.map(renderRow)}
             </TBody>
           </Table>
         </Card>
