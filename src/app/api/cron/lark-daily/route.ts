@@ -36,12 +36,15 @@ export async function GET(request: NextRequest) {
     .select("account_name, current_balance, active, sort_order, updated_at")
     .order("sort_order", { ascending: true });
 
-  const accounts = ((data ?? []) as BankRow[]).filter((a) => a.active);
+  const accounts = (data ?? []) as BankRow[];
   if (accounts.length === 0) {
-    return NextResponse.json({ ok: false, skipped: "no active accounts" });
+    return NextResponse.json({ ok: false, skipped: "no accounts" });
   }
 
-  const total = accounts.reduce((sum, a) => sum + Number(a.current_balance || 0), 0);
+  // Total mirrors the app's "Current Cash" — active accounts only.
+  const total = accounts
+    .filter((a) => a.active)
+    .reduce((sum, a) => sum + Number(a.current_balance || 0), 0);
   // Freshness = the most recent balance update across accounts.
   const latest = accounts
     .map((a) => a.updated_at)
@@ -53,7 +56,9 @@ export async function GET(request: NextRequest) {
     "💰 FinanceOS — Daily Cash Balance",
     formatDate(new Date().toISOString().slice(0, 10)),
     "",
-    ...accounts.map((a) => `${a.account_name}: ${formatMYR(a.current_balance)}`),
+    ...accounts.map(
+      (a) => `${a.account_name}: ${formatMYR(a.current_balance)}${a.active ? "" : " (inactive)"}`,
+    ),
     "──────────────",
     `Total Cash: ${formatMYR(total)}`,
     ...(latest ? [`(as of ${formatTime(latest)})`] : []),
