@@ -1,0 +1,33 @@
+name: FinanceOS scheduled jobs
+
+# Reliable daily triggers for FinanceOS. Vercel Hobby cron jobs fire on a loose
+# "best-effort" schedule, so GitHub Actions pokes the app's endpoints on time
+# instead. Each job hits a Vercel API route that does the real work.
+#
+# Setup: add a repository secret named CRON_SECRET (Settings → Secrets and
+# variables → Actions → New repository secret) with the SAME value as the
+# CRON_SECRET environment variable in Vercel.
+
+on:
+  schedule:
+    - cron: "0 16 * * *" # 00:00 MYT — sync bank balances (Stripe/Airwallex/Payex)
+    - cron: "0 4 * * *" #  12:00 MYT — post the daily cash balance to Lark
+  workflow_dispatch: {} # manual "Run workflow" button (fires both, for testing)
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync bank balances (midnight MYT)
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 16 * * *'
+        run: |
+          curl -fsS --retry 3 --max-time 120 -X GET \
+            "https://finance-os-theta-ten.vercel.app/api/cron/stripe-balance" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Post daily balance to Lark (noon MYT)
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 4 * * *'
+        run: |
+          curl -fsS --retry 3 --max-time 120 -X GET \
+            "https://finance-os-theta-ten.vercel.app/api/cron/lark-daily" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
