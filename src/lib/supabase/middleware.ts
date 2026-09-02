@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// Cron API routes authenticate themselves via CRON_SECRET, so they must NOT be
+// redirected to /login by the session check (that's why the scheduled sync and
+// Lark jobs were silently bouncing to the login page).
+const PUBLIC_PATHS = ["/login", "/auth", "/api/cron"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
