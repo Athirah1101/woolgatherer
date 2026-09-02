@@ -7,6 +7,8 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { syncAllBalances } from "@/lib/integrations/balances";
 import { sendNotification } from "@/lib/integrations/email";
+import { sendLark, larkConfigured } from "@/lib/integrations/lark";
+import { buildDailyBalanceMessage } from "@/lib/integrations/larkDaily";
 import { formatMYR } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 
@@ -149,6 +151,24 @@ export async function syncBalancesNow(_: SyncState, _fd: FormData): Promise<Sync
     // exact culprit (bad key, wrong currency, missing config) is visible.
     if (anyProblem) return { error: summary };
     return { ok: true, detail: summary };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** Post the current cash balance to the Lark group immediately (manual test/send). */
+export async function postBalanceToLarkNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+  try {
+    await requireFinance();
+    if (!larkConfigured()) {
+      return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
+    }
+    const supabase = await createClient();
+    const text = await buildDailyBalanceMessage(supabase);
+    if (!text) return { error: "No bank accounts to report." };
+    const sent = await sendLark(text);
+    if (!sent) return { error: "Lark rejected the message. Check the webhook URL and that the bot keyword is 'FinanceOS'." };
+    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }

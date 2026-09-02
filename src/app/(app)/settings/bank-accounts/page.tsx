@@ -5,6 +5,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDateTime } from "@/lib/finance/dates";
 import { getCashHistory } from "@/lib/data/cashHistory";
 import { SyncBalancesButton } from "./SyncStripeButton";
+import { PostToLarkButton } from "./PostToLarkButton";
 import { BankTrendChart } from "./BankTrendChart";
 import { BankAccountsTable, NewBankAccountButton } from "./BankAccountsTable";
 
@@ -31,6 +32,7 @@ export default async function BankAccountsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SyncBalancesButton />
+            <PostToLarkButton />
             <NewBankAccountButton />
           </div>
         }
