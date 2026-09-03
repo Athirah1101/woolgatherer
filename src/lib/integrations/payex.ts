@@ -184,6 +184,7 @@ interface PayexSettlement {
   gross_amount?: number | string;
   base_amount?: number | string;
   txn_date?: string; // date of the underlying transaction being settled
+  date?: string; // the settlement (payout) date
 }
 
 /** First 8 chars (yyyyMMdd) of a Payex date like "20260818" or "20260818193908". */
@@ -239,6 +240,11 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     if (cur !== MYR) continue;
     const txnDay = dayKey(s.txn_date);
     if (txnDay && txnDay < start) continue; // pre-anchor sale — not ours to subtract
+    // A settlement dated today (or later) is only queued, not yet actually paid
+    // out to the bank — keep that money showing in Payex until the settlement
+    // date has passed and it has really landed in CIMB.
+    const settleDay = dayKey(s.date);
+    if (settleDay && settleDay >= end) continue;
     settled += toNum(s.gross_amount ?? s.base_amount);
     settledCount++;
   }
