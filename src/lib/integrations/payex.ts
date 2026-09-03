@@ -240,11 +240,13 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     if (cur !== MYR) continue;
     const txnDay = dayKey(s.txn_date);
     if (txnDay && txnDay < start) continue; // pre-anchor sale — not ours to subtract
-    // A settlement dated today (or later) is only queued, not yet actually paid
-    // out to the bank — keep that money showing in Payex until the settlement
-    // date has passed and it has really landed in CIMB.
+    // A settlement whose payout date is in the FUTURE is only queued, not yet
+    // disbursed — keep that money showing in Payex until the payout day arrives.
+    // Once the payout date is today or earlier, Payex has paid it out to CIMB,
+    // so we subtract it (otherwise the same money is counted in both Payex and
+    // the CIMB balance for a day).
     const settleDay = dayKey(s.date);
-    if (settleDay && settleDay >= end) continue;
+    if (settleDay && settleDay > end) continue;
     settled += toNum(s.gross_amount ?? s.base_amount);
     settledCount++;
   }
