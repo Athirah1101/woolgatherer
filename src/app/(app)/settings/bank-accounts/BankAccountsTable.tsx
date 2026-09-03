@@ -89,15 +89,19 @@ export function BankAccountsTable({ accounts }: { accounts: BankAccount[] }) {
             {items.map((a, i) => (
               <tr
                 key={a.id}
-                draggable
-                onDragStart={() => setDragIndex(i)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => onDrop(i)}
                 className={`border-b border-border last:border-0 hover:bg-gray-50/60 ${
                   dragIndex === i ? "opacity-40" : ""
                 }`}
               >
-                <td className="cursor-grab px-2 py-3 text-center text-muted select-none" title="Drag to reorder">
+                <td
+                  draggable
+                  onDragStart={() => setDragIndex(i)}
+                  onDragEnd={() => setDragIndex(null)}
+                  className="cursor-grab px-2 py-3 text-center text-muted select-none"
+                  title="Drag to reorder"
+                >
                   ⋮⋮
                 </td>
                 <td className="px-4 py-3 font-medium">{a.account_name}</td>
