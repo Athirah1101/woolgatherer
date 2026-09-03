@@ -151,7 +151,7 @@ async function maybeCreatePayback(
 
 /** Payments made via this method are debited from the named bank account. */
 const BANK_DEDUCT_METHOD = "CIMB Bank Transfer";
-const BANK_DEDUCT_ACCOUNT = "CIMB Bank";
+const BANK_DEDUCT_ACCOUNT = "Main Operating Account";
 
 async function maybeDeductFromBank(
   supabase: Awaited<ReturnType<typeof createClient>>,
