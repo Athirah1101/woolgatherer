@@ -219,7 +219,9 @@ export function EmptyState({
 // ---------------------------------------------------------------- Table
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-surface">
+    // max-height makes this the vertical scroll region so the header (sticky
+    // cells below) freezes at the top for long tables. Short tables don't scroll.
+    <div className="max-h-[72vh] overflow-auto rounded-xl border border-border bg-surface">
       <table className="w-full min-w-[720px] border-collapse text-sm">
         {children}
       </table>
@@ -243,7 +245,15 @@ export function TH({
   right?: boolean;
 }) {
   return (
-    <th className={cn("px-4 py-2.5 font-medium", right && "text-right", className)}>
+    <th
+      className={cn(
+        // Frozen header: each cell sticks to the top of the scroll region with a
+        // solid background so rows scroll underneath it.
+        "sticky top-0 z-10 bg-gray-50 px-4 py-2.5 font-medium shadow-[inset_0_-1px_0_var(--border)]",
+        right && "text-right",
+        className,
+      )}
+    >
       {children}
     </th>
   );
