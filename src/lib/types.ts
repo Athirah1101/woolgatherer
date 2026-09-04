@@ -118,6 +118,10 @@ export interface Payable {
   period_key: string | null;
   is_payback?: boolean;
   source_payable_id?: string | null;
+  // Email-invoice ingestion.
+  needs_review?: boolean;
+  source?: string | null;
+  invoice_ref?: string | null;
   // Payment-arrangement board (the Wed/Fri Lark list).
   arrangement?: boolean;
   arrangement_hold?: boolean;

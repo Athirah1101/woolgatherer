@@ -269,6 +269,26 @@ export async function cancelPayable(fd: FormData): Promise<void> {
   refresh();
 }
 
+/** Confirm an auto-imported (email) invoice — clears the "Needs review" flag. */
+export async function approveInvoice(fd: FormData): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("payables").update({ needs_review: false }).eq("id", id);
+  refresh();
+}
+
+/** Reject an auto-imported invoice — cancels it and clears the review flag. */
+export async function rejectInvoice(fd: FormData): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("payables").update({ status: "cancelled", needs_review: false }).eq("id", id);
+  refresh();
+}
+
 export async function saveRecurring(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     await financeGuard();

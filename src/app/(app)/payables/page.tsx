@@ -16,7 +16,7 @@ import { SortControl, type SortOption } from "@/components/SortControl";
 import { SearchBox } from "@/components/SearchBox";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
-import { addToArrangement, cancelPayable, markPayablePaid, removeFromArrangement, savePayable } from "./actions";
+import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable } from "./actions";
 
 export default async function PayablesPage({
   searchParams,
@@ -26,9 +26,14 @@ export default async function PayablesPage({
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
   const sp = await searchParams;
-  const rows = await getPayableRows();
+  const allRows = await getPayableRows();
   const cats = await getCategories("payable");
   const methods = await getPaymentMethods();
+
+  // Auto-imported invoices awaiting confirmation are kept out of every list and
+  // total until approved — they live only in the "Needs review" section.
+  const reviewItems = allRows.filter((r) => r.payable.needs_review).map((r) => r.payable);
+  const rows = allRows.filter((r) => !r.payable.needs_review);
 
   // "Still owed" = unpaid or partially paid; metrics use the remaining amount.
   const owing = (r: { payable: Payable }) =>
@@ -134,6 +139,12 @@ export default async function PayablesPage({
       <div className="mb-6">
         <AgingChart title="Aged Payables" buckets={agingPayables} />
       </div>
+
+      {isFinance && reviewItems.length > 0 && (
+        <div className="mb-6">
+          <ReviewSection items={reviewItems} cats={cats} methods={methods} />
+        </div>
+      )}
 
       {isFinance && (
         <div className="mb-6">
@@ -252,6 +263,66 @@ export default async function PayablesPage({
         </Card>
       )}
     </div>
+  );
+}
+
+/** Auto-imported invoices (from email) awaiting confirmation before they count. */
+function ReviewSection({
+  items, cats, methods,
+}: {
+  items: Payable[];
+  cats: Category[];
+  methods: PaymentMethod[];
+}) {
+  return (
+    <Card padded={false}>
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">🧾 Needs review ({items.length})</h2>
+          <p className="text-xs text-muted">
+            Auto-imported from invoice emails. Check the details, then Approve to add it — or Reject to discard.
+            These don&apos;t count in any total until approved.
+          </p>
+        </div>
+      </div>
+      <Table>
+        <THead>
+          <TR>
+            <TH>Vendor</TH>
+            <TH>Invoice</TH>
+            <TH>Due Date</TH>
+            <TH right>Amount</TH>
+            <TH right>Actions</TH>
+          </TR>
+        </THead>
+        <TBody>
+          {items.map((p) => (
+            <TR key={p.id} className="bg-amber-50/40">
+              <TD className="font-medium">
+                {p.payee}
+                {p.description && <div className="text-xs text-muted">{p.description}</div>}
+              </TD>
+              <TD className="text-muted">{p.invoice_ref ?? "—"}</TD>
+              <TD>{formatDate(p.due_date)}</TD>
+              <TD right className="font-medium">{formatMYR(p.amount)}</TD>
+              <TD right>
+                <div className="flex flex-wrap justify-end gap-1">
+                  <form action={approveInvoice}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <InlineSubmit variant="primary">Approve</InlineSubmit>
+                  </form>
+                  <PayableForm cats={cats} methods={methods} p={p} trigger={{ label: "Edit", variant: "secondary" }} />
+                  <form action={rejectInvoice}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <InlineSubmit variant="danger" confirm="Discard this imported invoice?">Reject</InlineSubmit>
+                  </form>
+                </div>
+              </TD>
+            </TR>
+          ))}
+        </TBody>
+      </Table>
+    </Card>
   );
 }
 
