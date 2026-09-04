@@ -10,13 +10,16 @@ export function Card({
   children,
   className,
   padded = true,
+  id,
 }: {
   children: ReactNode;
   className?: string;
   padded?: boolean;
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={cn(
         "rounded-xl border border-border bg-surface shadow-sm",
         padded && "p-5",
@@ -264,12 +267,18 @@ export function TBody({ children }: { children: ReactNode }) {
 export function TR({
   children,
   className,
+  search,
 }: {
   children: ReactNode;
   className?: string;
+  /** Lowercased text used by the client-side TableSearch filter (data-search). */
+  search?: string;
 }) {
   return (
-    <tr className={cn("border-b border-border last:border-0 hover:bg-gray-50/60", className)}>
+    <tr
+      data-search={search}
+      className={cn("border-b border-border last:border-0 hover:bg-gray-50/60", className)}
+    >
       {children}
     </tr>
   );

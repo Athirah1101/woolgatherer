@@ -13,7 +13,7 @@ import { daysOverdue, formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { owedAmount } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable } from "./actions";
@@ -67,15 +67,10 @@ export default async function PayablesPage({
   // ---- View filter: default hides paid so the list stays short ----
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
   const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
-  const q = (sp.q ?? "").trim().toLowerCase();
-  let filtered =
+  // Search is done live in the browser (see TableSearch) so typing never reloads
+  // the page — the server only splits by the To Pay / Paid / All view.
+  const filtered =
     view === "all" ? rows : view === "paid" ? rows.filter((r) => r.payable.status === "paid") : rows.filter(owing);
-  if (q)
-    filtered = filtered.filter(
-      (r) =>
-        r.payable.payee?.toLowerCase().includes(q) ||
-        (r.payable.description ?? "").toLowerCase().includes(q),
-    );
   const VIEWS: { key: string; label: string; count: number }[] = [
     { key: "unpaid", label: "To Pay", count: unpaid.length },
     { key: "paid", label: "Paid", count: paidCount },
@@ -168,7 +163,7 @@ export default async function PayablesPage({
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <SearchBox placeholder="Search payee or description…" className="w-56" />
+          <TableSearch targetId="payables-rows" placeholder="Search payables…" className="w-56" />
           <SortControl options={SORTS} />
         </div>
       </div>
@@ -184,7 +179,10 @@ export default async function PayablesPage({
           message={view === "paid" ? "Payables you mark as paid will show up here." : "Try a different filter."}
         />
       ) : (
-        <Card padded={false}>
+        <Card padded={false} id="payables-rows">
+          <div id="payables-rows-empty" hidden className="px-4 py-10 text-center text-sm text-muted">
+            No payables match your search.
+          </div>
           <Table>
             <THead>
               <TR>
@@ -201,7 +199,10 @@ export default async function PayablesPage({
               {shown.map(({ payable: p, attention }) => {
                 const chip = payableAttentionChip(attention.level);
                 return (
-                  <TR key={p.id}>
+                  <TR
+                    key={p.id}
+                    search={`${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase()}
+                  >
                     <TD className="font-medium">
                       {p.payee}
                       {p.recurring_rule_id && <span className="ml-2 text-xs text-muted">(recurring)</span>}
