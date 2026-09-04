@@ -11,6 +11,8 @@ import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
+import { sendLark, larkConfigured } from "@/lib/integrations/lark";
+import { buildPaymentArrangementMessage } from "@/lib/integrations/larkPayments";
 
 async function financeGuard() {
   const session = await getSession();
@@ -178,6 +180,86 @@ async function maybeDeductFromBank(
   revalidatePath("/settings/bank-accounts");
   revalidatePath("/dashboard");
   revalidatePath("/cashflow");
+}
+
+// ---------------------------------------------------------------------------
+// Payment-arrangement board (the Wed/Fri Lark list)
+// ---------------------------------------------------------------------------
+
+/** Add a payable to the arrangement board (appended to the bottom). */
+export async function addToArrangement(fd: FormData): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  // Put new items at the end of the current order.
+  const { data: rows } = await supabase
+    .from("payables").select("arrangement_order").eq("arrangement", true);
+  const max = Math.max(0, ...(rows ?? []).map((r) => Number(r.arrangement_order ?? 0)));
+  await supabase
+    .from("payables")
+    .update({ arrangement: true, arrangement_order: max + 1 })
+    .eq("id", id);
+  refresh();
+}
+
+/** Remove a payable from the arrangement board (keeps its note/hold for later). */
+export async function removeFromArrangement(fd: FormData): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("payables").update({ arrangement: false }).eq("id", id);
+  refresh();
+}
+
+/** Flip a board item between "will pay" and "On Hold" (excluded from the message). */
+export async function setArrangementHold(id: string, hold: boolean): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  await supabase.from("payables").update({ arrangement_hold: hold }).eq("id", id);
+  refresh();
+}
+
+/** Save the short per-line note shown in the Lark message, e.g. a reason. */
+export async function setArrangementNote(id: string, note: string): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  await supabase
+    .from("payables")
+    .update({ arrangement_note: note.trim() || null })
+    .eq("id", id);
+  refresh();
+}
+
+/** Persist a new drag order for the board. */
+export async function reorderArrangement(orderedIds: string[]): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      supabase.from("payables").update({ arrangement_order: i + 1 }).eq("id", id),
+    ),
+  );
+  revalidatePath("/payables");
+}
+
+/** Manual "Post to Lark now" for the arrangement list (finance only). */
+export async function postPaymentsToLarkNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+  try {
+    await financeGuard();
+    if (!larkConfigured()) {
+      return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
+    }
+    const supabase = await createClient();
+    const text = await buildPaymentArrangementMessage(supabase);
+    if (!text) return { error: "Nothing on the board yet — tick some payables into the list first." };
+    const sent = await sendLark(text);
+    if (!sent) return { error: "Lark rejected the message. Check the webhook URL and the 'FinanceOS' keyword." };
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 export async function cancelPayable(fd: FormData): Promise<void> {

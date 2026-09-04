@@ -116,6 +116,13 @@ export interface Payable {
   notes: string | null;
   recurring_rule_id: string | null;
   period_key: string | null;
+  is_payback?: boolean;
+  source_payable_id?: string | null;
+  // Payment-arrangement board (the Wed/Fri Lark list).
+  arrangement?: boolean;
+  arrangement_hold?: boolean;
+  arrangement_order?: number | null;
+  arrangement_note?: string | null;
 }
 
 export type ExpenseStatus =

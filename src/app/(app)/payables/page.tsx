@@ -15,7 +15,8 @@ import { owedAmount } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
 import { SearchBox } from "@/components/SearchBox";
 import { AgingChart, buildAging } from "@/components/AgingChart";
-import { cancelPayable, markPayablePaid, savePayable } from "./actions";
+import { ArrangementBoard } from "./ArrangementBoard";
+import { addToArrangement, cancelPayable, markPayablePaid, removeFromArrangement, savePayable } from "./actions";
 
 export default async function PayablesPage({
   searchParams,
@@ -34,6 +35,11 @@ export default async function PayablesPage({
     r.payable.status === "unpaid" || r.payable.status === "partially_paid";
   const today = todayISO();
   const unpaid = rows.filter(owing);
+  // Payment-arrangement board: ticked + still-owed payables, in the manual order.
+  const arrangementItems = rows
+    .filter((r) => r.payable.arrangement && owing(r))
+    .map((r) => r.payable)
+    .sort((a, b) => (a.arrangement_order ?? 1e9) - (b.arrangement_order ?? 1e9));
   // Aged payables: each still-owed bill bucketed by how overdue it is.
   const agingPayables = buildAging(
     unpaid.map((r) => ({
@@ -129,6 +135,12 @@ export default async function PayablesPage({
         <AgingChart title="Aged Payables" buckets={agingPayables} />
       </div>
 
+      {isFinance && (
+        <div className="mb-6">
+          <ArrangementBoard items={arrangementItems} />
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
           {VIEWS.map((v) => (
@@ -214,6 +226,12 @@ export default async function PayablesPage({
                         <div className="flex flex-wrap justify-end gap-1">
                           {(p.status === "unpaid" || p.status === "partially_paid") && (
                             <>
+                              <form action={p.arrangement ? removeFromArrangement : addToArrangement}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <InlineSubmit variant="secondary">
+                                  {p.arrangement ? "✓ On list" : "+ Add to list"}
+                                </InlineSubmit>
+                              </form>
                               <MarkPaid p={p} methods={methods} />
                               <PayableForm cats={cats} methods={methods} p={p} />
                               <form action={cancelPayable}>
