@@ -133,7 +133,13 @@ export function ReceivablesTable({
   const upcoming = useMemo(
     () =>
       rows
-        .filter((r) => r.nextDate && r.outstanding > 0 && daysUntil(r.nextDate, today) <= 7)
+        .filter(
+          (r) =>
+            r.nextDate &&
+            r.outstanding > 0 &&
+            daysUntil(r.nextDate, today) >= 0 && // exclude overdue — those live in their own list
+            daysUntil(r.nextDate, today) <= 7,
+        )
         .sort((a, b) => (a.nextDate ?? "").localeCompare(b.nextDate ?? "")),
     [rows, today],
   );

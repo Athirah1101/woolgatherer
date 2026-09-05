@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseInvoice, invoiceParseConfigured, type ParsedInvoice } from "@/lib/integrations/invoiceParse";
-import { todayISO } from "@/lib/finance/dates";
+import { sendLark, larkConfigured } from "@/lib/integrations/lark";
+import { formatMYR } from "@/lib/finance/money";
+import { formatDate, todayISO } from "@/lib/finance/dates";
 
 // Receives an invoice email (from the finance@ connector) and creates a payable
 // flagged "Needs review". Reads amount/due date/vendor off the PDF or email body
@@ -96,5 +98,21 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Best-effort Lark ping — never blocks the import.
+  if (larkConfigured()) {
+    try {
+      await sendLark(
+        [
+          "🧾 New payable added (needs review)",
+          `${payee} — ${formatMYR(parsed.amount ?? 0)}`,
+          `Due ${formatDate(parsed.due_date || todayISO())}`,
+        ].join("\n"),
+      );
+    } catch {
+      /* ignore notification failure */
+    }
+  }
+
   return NextResponse.json({ ok: true, id: data?.id, parsed });
 }

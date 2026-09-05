@@ -42,8 +42,15 @@ export default async function RefundsPage({
       )
     : typeFiltered;
 
+  // Order by due time: most-urgent (soonest / most overdue deadline) first.
+  // refundAttn.days = days until deadline (negative = overdue); no deadline sinks
+  // to the bottom.
+  const byDue = (a: (typeof cases)[number], b: (typeof cases)[number]) =>
+    (a.refundAttn?.days ?? 9999) - (b.refundAttn?.days ?? 9999);
+  const casesSorted = [...cases].sort(byDue);
+
   // Active = HRDC funds received but not yet fully refunded — these get a live timer.
-  const active = cases.filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0);
+  const active = cases.filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0).sort(byDue);
 
   const totalRemaining = sumMoney(cases.map((r) => r.refund.remaining));
   const totalRefunded = sumMoney(cases.map((r) => r.refund.refunded));
@@ -121,7 +128,7 @@ export default async function RefundsPage({
                   </TR>
                 </THead>
                 <TBody>
-                  {cases.map((r) => {
+                  {casesSorted.map((r) => {
                     const st = refundStatusChip(r.refund.status);
                     return (
                       <TR key={r.claim.id}>

@@ -7,7 +7,7 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import type { RecurringPayable } from "@/lib/types";
 import { dueDatesForRule } from "@/lib/finance/payables";
-import { endOfMonth, startOfMonth, todayISO } from "@/lib/finance/dates";
+import { endOfMonth, startOfMonth, todayISO, formatDate } from "@/lib/finance/dates";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
@@ -28,6 +28,22 @@ function refresh() {
   revalidatePath("/payables");
   revalidatePath("/dashboard");
   revalidatePath("/cashflow");
+}
+
+/** Best-effort Lark ping when a new payable is added (never blocks the save). */
+async function notifyNewPayable(payee: string, amount: number, dueDate: string, tag?: string) {
+  try {
+    if (!larkConfigured()) return;
+    await sendLark(
+      [
+        `🧾 New payable added${tag ? ` ${tag}` : ""}`,
+        `${payee} — ${formatMYR(amount)}`,
+        `Due ${formatDate(dueDate)}`,
+      ].join("\n"),
+    );
+  } catch {
+    // ignore — a failed notification must never break creating the payable
+  }
 }
 
 export async function savePayable(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -55,6 +71,8 @@ export async function savePayable(_: ActionState, fd: FormData): Promise<ActionS
       entity_type: "payable", entity_id: id || null, action: id ? "updated" : "created",
       actor: session.userId, summary: `${payee} — ${formatMYR(payload.amount)}`,
     });
+    // Alert the Lark group when a brand-new payable is added (not on edits).
+    if (!id) await notifyNewPayable(payee, payload.amount, due_date);
     refresh();
     return { ok: true };
   } catch (e) {
