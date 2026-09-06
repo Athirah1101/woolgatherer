@@ -8,7 +8,7 @@ import {
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { hrdcStageChip, refundColorTone } from "@/lib/finance/display";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 
 const TABS = [
   { key: "all", label: "All Claims" },
@@ -29,7 +29,6 @@ export default async function HrdcPage({
   const isFinance = profile.role === "finance";
   const sp = await searchParams;
   const tab = sp.tab ?? "all";
-  const q = (sp.q ?? "").trim().toLowerCase();
   const rows = await getHrdcRows();
 
   const refundAmountDue = sumMoney(rows.map((r) => r.refund.remaining));
@@ -43,10 +42,7 @@ export default async function HrdcPage({
   const toSubmit = rows.filter((r) => r.tab === "claim_to_submit").length;
   const queriesOpen = rows.filter((r) => r.query.open).length;
 
-  const tabbed = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
-  const shown = q
-    ? tabbed.filter((r) => r.claim.client_name?.toLowerCase().includes(q))
-    : tabbed;
+  const shown = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
 
   return (
     <div>
@@ -84,7 +80,7 @@ export default async function HrdcPage({
           );
         })}
         </div>
-        <SearchBox placeholder="Search client…" className="w-56" />
+        <TableSearch targetId="hrdc-rows" placeholder="Search client, product…" className="w-56" />
       </div>
 
       {shown.length === 0 ? (
@@ -93,7 +89,8 @@ export default async function HrdcPage({
           message={tab === "all" ? "Create a claim to begin tracking the lifecycle." : "Nothing in this stage right now."}
         />
       ) : (
-        <Card padded={false}>
+        <>
+        <Card padded={false} id="hrdc-rows">
           <Table>
             <THead>
               <TR>
@@ -106,7 +103,7 @@ export default async function HrdcPage({
               {shown.map((r) => {
                 const stage = hrdcStageChip(r.stage);
                 return (
-                  <TR key={r.claim.id}>
+                  <TR key={r.claim.id} search={`${r.claim.client_name ?? ""} ${r.claim.product ?? ""} ${stage.label}`.toLowerCase()}>
                     <TD className="font-medium">
                       <Link href={`/hrdc/${r.claim.id}`} className="hover:text-brand hover:underline">
                         {r.claim.client_name}
@@ -140,6 +137,10 @@ export default async function HrdcPage({
             </TBody>
           </Table>
         </Card>
+        <div id="hrdc-rows-empty" hidden>
+          <EmptyState title="No matching claims." message="No HRDC claims match your search." />
+        </div>
+        </>
       )}
     </div>
   );

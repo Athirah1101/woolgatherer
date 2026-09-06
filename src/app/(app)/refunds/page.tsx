@@ -9,7 +9,7 @@ import {
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { refundStatusChip, refundColorTone } from "@/lib/finance/display";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 import { SinceTimer } from "./SinceTimer";
 import { RefundCaseForm, RecordRefundForm } from "./RefundForms";
 import { REFUND_TYPES, refundTypeLabel } from "./refundTypes";
@@ -31,16 +31,10 @@ export default async function RefundsPage({
   );
 
   const typeFilter = REFUND_TYPES.some((t) => t.value === sp.type) ? sp.type : "all";
-  const typeFiltered = typeFilter === "all" ? allCases : allCases.filter((r) => r.claim.refund_type === typeFilter);
-  const q = (sp.q ?? "").trim().toLowerCase();
-  const cases = q
-    ? typeFiltered.filter(
-        (r) =>
-          r.claim.client_name?.toLowerCase().includes(q) ||
-          refundTypeLabel(r.claim.refund_type).toLowerCase().includes(q) ||
-          (r.claim.notes ?? "").toLowerCase().includes(q),
-      )
-    : typeFiltered;
+  // Text search is applied instantly in the browser (see TableSearch); summary
+  // cards and the side panel stay based on the type filter so searching never
+  // distorts the totals.
+  const cases = typeFilter === "all" ? allCases : allCases.filter((r) => r.claim.refund_type === typeFilter);
 
   // Order by due time: most-urgent (soonest / most overdue deadline) first.
   // refundAttn.days = days until deadline (negative = overdue); no deadline sinks
@@ -88,7 +82,7 @@ export default async function RefundsPage({
           );
         })}
         </div>
-        <SearchBox placeholder="Search client, type or notes…" className="w-56" />
+        <TableSearch targetId="refunds-rows" placeholder="Search client, type or notes…" className="w-56" />
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -111,7 +105,8 @@ export default async function RefundsPage({
               }
             />
           ) : (
-            <Card padded={false}>
+            <>
+            <Card padded={false} id="refunds-rows">
               <Table>
                 <THead>
                   <TR>
@@ -131,7 +126,7 @@ export default async function RefundsPage({
                   {casesSorted.map((r) => {
                     const st = refundStatusChip(r.refund.status);
                     return (
-                      <TR key={r.claim.id}>
+                      <TR key={r.claim.id} search={`${r.claim.client_name ?? ""} ${refundTypeLabel(r.claim.refund_type)} ${r.claim.notes ?? ""}`.toLowerCase()}>
                         <TD className="font-medium">{r.claim.client_name}</TD>
                         <TD><Chip tone={r.claim.refund_type === "hrdc" ? "indigo" : "gray"}>{refundTypeLabel(r.claim.refund_type)}</Chip></TD>
                         <TD right>{r.claim.amount_client_paid != null ? formatMYR(r.claim.amount_client_paid) : "—"}</TD>
@@ -176,6 +171,10 @@ export default async function RefundsPage({
                 </TBody>
               </Table>
             </Card>
+            <div id="refunds-rows-empty" hidden>
+              <EmptyState title="No matching refund cases." message="No cases match your search." />
+            </div>
+            </>
           )}
         </div>
 

@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { getActivity } from "@/lib/data/activity";
 import { Card, Chip, EmptyState, PageHeader, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import { formatDateTime } from "@/lib/finance/dates";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 
 const MODULE_LABEL: Record<string, string> = {
   receivable: "Receivable",
@@ -22,32 +22,21 @@ export default async function ActivityPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await requireRole("finance", "management");
-  const sp = await searchParams;
-  const q = (sp.q ?? "").trim().toLowerCase();
-  const allRows = await getActivity(300);
-  const rows = q
-    ? allRows.filter((r) => {
-        const moduleLabel = MODULE_LABEL[r.entityType] ?? r.entityType;
-        return (
-          r.actorName.toLowerCase().includes(q) ||
-          (r.summary ?? "").toLowerCase().includes(q) ||
-          r.action.toLowerCase().includes(q) ||
-          moduleLabel.toLowerCase().includes(q)
-        );
-      })
-    : allRows;
+  await searchParams;
+  const rows = await getActivity(300);
 
   return (
     <div>
       <PageHeader
         title="Change History"
         subtitle="Every change made in FinanceOS — what changed, when, and by whom."
-        actions={<SearchBox placeholder="Search history…" className="w-56" />}
+        actions={<TableSearch targetId="activity-rows" placeholder="Search history…" className="w-56" />}
       />
       {rows.length === 0 ? (
         <EmptyState title="No activity yet." message="Changes will appear here as your team uses the app." />
       ) : (
-        <Card padded={false}>
+        <>
+        <Card padded={false} id="activity-rows">
           <Table>
             <THead>
               <TR>
@@ -56,7 +45,7 @@ export default async function ActivityPage({
             </THead>
             <TBody>
               {rows.map((r) => (
-                <TR key={r.id}>
+                <TR key={r.id} search={`${r.actorName} ${r.summary ?? ""} ${r.action} ${MODULE_LABEL[r.entityType] ?? r.entityType}`.toLowerCase()}>
                   <TD className="whitespace-nowrap text-muted">{formatDateTime(r.createdAt)}</TD>
                   <TD className="font-medium">{r.actorName}</TD>
                   <TD><Chip tone="gray">{MODULE_LABEL[r.entityType] ?? r.entityType}</Chip></TD>
@@ -67,6 +56,10 @@ export default async function ActivityPage({
             </TBody>
           </Table>
         </Card>
+        <div id="activity-rows-empty" hidden>
+          <EmptyState title="No matching changes." message="No history matches your search." />
+        </div>
+        </>
       )}
     </div>
   );

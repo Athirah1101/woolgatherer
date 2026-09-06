@@ -11,7 +11,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
 import { SortControl, type SortOption } from "@/components/SortControl";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
 import { FrequencyFields } from "./FrequencyFields";
 
@@ -55,8 +55,7 @@ export default async function RecurringPage({
   ]);
 
   const sort = RULE_SORTS.some((s) => s.value === sp.sort) ? sp.sort! : "name_az";
-  const q = (sp.q ?? "").trim().toLowerCase();
-  const sorted = [...allRules].sort((a, b) => {
+  const rules = [...allRules].sort((a, b) => {
     switch (sort) {
       case "name_za": return b.name.localeCompare(a.name);
       case "amount_desc": return b.default_amount - a.default_amount;
@@ -65,11 +64,6 @@ export default async function RecurringPage({
       default: return a.name.localeCompare(b.name);
     }
   });
-  const rules = q
-    ? sorted.filter(
-        (r) => r.name.toLowerCase().includes(q) || (r.payee ?? "").toLowerCase().includes(q),
-      )
-    : sorted;
 
   // ---- Overview / forecast ----
   const today = todayISO();
@@ -106,7 +100,7 @@ export default async function RecurringPage({
 
       {allRules.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-          <SearchBox placeholder="Search name or payee…" className="w-56" />
+          <TableSearch targetId="recurring-rows" placeholder="Search name or payee…" className="w-56" />
           <SortControl options={RULE_SORTS} />
         </div>
       )}
@@ -118,7 +112,8 @@ export default async function RecurringPage({
           action={<RuleForm cats={cats} methods={methods} />}
         />
       ) : (
-        <Card padded={false}>
+        <>
+        <Card padded={false} id="recurring-rows">
           <Table>
             <THead>
               <TR>
@@ -128,7 +123,7 @@ export default async function RecurringPage({
             </THead>
             <TBody>
               {rules.map((r) => (
-                <TR key={r.id}>
+                <TR key={r.id} search={`${r.name} ${r.payee ?? ""}`.toLowerCase()}>
                   <TD className="font-medium">
                     <Link href={`/settings/recurring/${r.id}`} className="hover:text-brand hover:underline">
                       {r.name}
@@ -148,6 +143,10 @@ export default async function RecurringPage({
             </TBody>
           </Table>
         </Card>
+        <div id="recurring-rows-empty" hidden>
+          <EmptyState title="No matching rules." message="No recurring rules match your search." />
+        </div>
+        </>
       )}
     </div>
   );

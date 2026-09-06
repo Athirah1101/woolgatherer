@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, Chip, EmptyState, PageHeader } from "@/components/ui";
 import { InlineSubmit } from "@/components/form";
 import { formatDateTime } from "@/lib/finance/dates";
-import { SearchBox } from "@/components/SearchBox";
+import { TableSearch } from "@/components/TableSearch";
 import { resolveFeedback } from "./actions";
 
 interface FeedbackRow {
@@ -32,8 +32,7 @@ export default async function FeedbackPage({
 }) {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
-  const sp = await searchParams;
-  const q = (sp.q ?? "").trim().toLowerCase();
+  await searchParams;
   const supabase = await createClient();
 
   const [{ data: rows }, { data: profs }] = await Promise.all([
@@ -48,16 +47,6 @@ export default async function FeedbackPage({
   );
   const items = (rows ?? []) as FeedbackRow[];
   const open = items.filter((f) => !f.resolved);
-  const shown = q
-    ? items.filter((f) => {
-        const submitter = f.submitted_by ? nameById.get(f.submitted_by) ?? "" : "";
-        return (
-          f.message.toLowerCase().includes(q) ||
-          (f.subject ?? "").toLowerCase().includes(q) ||
-          submitter.toLowerCase().includes(q)
-        );
-      })
-    : items;
 
   // Signed, short-lived URLs for any attachments (private bucket).
   const attachmentUrls = new Map<string, string>();
@@ -83,21 +72,22 @@ export default async function FeedbackPage({
       <PageHeader
         title="Feedback"
         subtitle={`${open.length} open · from anyone using FinanceOS.`}
-        actions={<SearchBox placeholder="Search feedback…" className="w-56" />}
+        actions={items.length > 0 ? <TableSearch targetId="feedback-list" placeholder="Search feedback…" className="w-56" /> : undefined}
       />
-      {shown.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState
-          title={items.length === 0 ? "No feedback yet." : "No matching feedback."}
-          message={
-            items.length === 0
-              ? "Feedback submitted via the “Send Feedback” button appears here."
-              : "No feedback matches your search."
-          }
+          title="No feedback yet."
+          message="Feedback submitted via the “Send Feedback” button appears here."
         />
       ) : (
-        <div className="space-y-3">
-          {shown.map((f) => (
-            <Card key={f.id} className={f.resolved ? "opacity-60" : undefined}>
+        <>
+        <div id="feedback-list" className="space-y-3">
+          {items.map((f) => {
+            const submitter = f.submitted_by ? nameById.get(f.submitted_by) ?? "" : "";
+            const meta0 = TYPE_META[f.type ?? "note"] ?? TYPE_META.note;
+            return (
+            <div key={f.id} data-search={`${f.subject ?? ""} ${f.message} ${submitter} ${meta0.label}`.toLowerCase()}>
+            <Card className={f.resolved ? "opacity-60" : undefined}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -135,8 +125,14 @@ export default async function FeedbackPage({
                 )}
               </div>
             </Card>
-          ))}
+            </div>
+            );
+          })}
         </div>
+        <div id="feedback-list-empty" hidden>
+          <EmptyState title="No matching feedback." message="No feedback matches your search." />
+        </div>
+        </>
       )}
     </div>
   );

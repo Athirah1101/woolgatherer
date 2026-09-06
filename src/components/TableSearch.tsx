@@ -3,13 +3,15 @@
 import { useState } from "react";
 
 /**
- * Instant, in-browser table filter — no page reload, no scroll jump. Filters
- * rows already rendered by the server: it shows/hides each `<tr data-search>`
- * under `targetId` whose data-search text contains the query. Matches the snappy
- * feel of the receivables search.
+ * Instant, in-browser filter — no page reload, no scroll jump. Filters items
+ * already rendered by the server: it shows/hides each element carrying a
+ * `data-search` attribute under `targetId` whose text contains the query. Works
+ * for table rows (`<tr data-search>`) and card lists (`<div data-search>`) alike.
+ * Matches the snappy feel of the receivables search.
  *
- * The searchable text lives in each row's `data-search` attribute (set via the
- * TR `search` prop), so button labels and other chrome never cause false hits.
+ * The searchable text lives in each item's `data-search` attribute (set via the
+ * TR `search` prop, or a wrapping div), so button labels and other chrome never
+ * cause false hits.
  */
 export function TableSearch({
   targetId,
@@ -28,9 +30,9 @@ export function TableSearch({
     const root = document.getElementById(targetId);
     if (!root) return;
     let shown = 0;
-    root.querySelectorAll<HTMLElement>("tr[data-search]").forEach((tr) => {
-      const match = !q || (tr.dataset.search ?? "").includes(q);
-      tr.hidden = !match;
+    root.querySelectorAll<HTMLElement>("[data-search]").forEach((el) => {
+      const match = !q || (el.dataset.search ?? "").includes(q);
+      el.hidden = !match;
       if (match) shown++;
     });
     const empty = document.getElementById(`${targetId}-empty`);
