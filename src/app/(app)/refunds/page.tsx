@@ -10,7 +10,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { refundStatusChip, refundColorTone } from "@/lib/finance/display";
 import { TableSearch } from "@/components/TableSearch";
-import { SinceTimer } from "./SinceTimer";
+import { RefundTimersPanel, type TimerItem } from "./RefundTimersPanel";
 import { RefundCaseForm, RecordRefundForm } from "./RefundForms";
 import { REFUND_TYPES, refundTypeLabel } from "./refundTypes";
 
@@ -44,7 +44,19 @@ export default async function RefundsPage({
   const casesSorted = [...cases].sort(byDue);
 
   // Active = HRDC funds received but not yet fully refunded — these get a live timer.
-  const active = cases.filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0).sort(byDue);
+  // Mapped to a serializable shape for the client-side sortable timer panel.
+  const activeItems: TimerItem[] = cases
+    .filter((r) => r.claim.hrdc_received_date && r.refund.remaining > 0)
+    .map((r) => ({
+      id: r.claim.id,
+      clientName: r.claim.client_name ?? "—",
+      remaining: r.refund.remaining,
+      receivedDate: r.claim.hrdc_received_date!,
+      attnText: r.refundAttn?.text ?? null,
+      attnColor: r.refundAttn?.color ?? null,
+      attnTone: r.refundAttn ? refundColorTone(r.refundAttn.color) : null,
+      days: r.refundAttn?.days ?? null,
+    }));
 
   const totalRemaining = sumMoney(cases.map((r) => r.refund.remaining));
   const totalRefunded = sumMoney(cases.map((r) => r.refund.refunded));
@@ -181,44 +193,7 @@ export default async function RefundsPage({
         {/* Side panel: live count-up timers since HRD funds received */}
         <div>
           <SectionTitle>Time Since HRDF Received</SectionTitle>
-          {active.length === 0 ? (
-            <Card>
-              <p className="text-sm text-muted">
-                No active refunds. Timers appear here the moment HRD Corp funds are received.
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {active.map((r) => {
-                const attn = r.refundAttn;
-                return (
-                  <Card
-                    key={r.claim.id}
-                    className={cn(
-                      "border-l-4",
-                      attn?.color === "red" && "border-l-red-500",
-                      attn?.color === "orange" && "border-l-orange-500",
-                      attn?.color === "yellow" && "border-l-amber-400",
-                      attn?.color === "green" && "border-l-emerald-500",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">{r.claim.client_name}</span>
-                      <span className="text-sm text-muted">{formatMYR(r.refund.remaining)}</span>
-                    </div>
-                    <div className="mt-2 text-lg">
-                      <SinceTimer since={r.claim.hrdc_received_date!} />
-                    </div>
-                    {attn && (
-                      <div className="mt-2">
-                        <AttentionBadge label={attn.text} tone={refundColorTone(attn.color)} />
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          <RefundTimersPanel items={activeItems} />
         </div>
       </div>
     </div>
