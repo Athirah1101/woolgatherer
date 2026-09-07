@@ -268,15 +268,23 @@ export function TR({
   children,
   className,
   search,
+  sortKeys,
 }: {
   children: ReactNode;
   className?: string;
   /** Lowercased text used by the client-side TableSearch filter (data-search). */
   search?: string;
+  /** Values the client-side TableSort reads, emitted as data-sort-<key>. */
+  sortKeys?: Record<string, string | number>;
 }) {
+  const dataAttrs: Record<string, string> = {};
+  if (sortKeys) {
+    for (const [k, v] of Object.entries(sortKeys)) dataAttrs[`data-sort-${k}`] = String(v);
+  }
   return (
     <tr
       data-search={search}
+      {...dataAttrs}
       className={cn("border-b border-border last:border-0 hover:bg-gray-50/60", className)}
     >
       {children}

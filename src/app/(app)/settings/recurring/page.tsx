@@ -10,17 +10,17 @@ import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea }
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
-import { SortControl, type SortOption } from "@/components/SortControl";
+import { TableSort, type TableSortOption } from "@/components/TableSort";
 import { TableSearch } from "@/components/TableSearch";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
 import { FrequencyFields } from "./FrequencyFields";
 
-const RULE_SORTS: SortOption[] = [
-  { value: "name_az", label: "Name (A → Z)" },
-  { value: "name_za", label: "Name (Z → A)" },
-  { value: "amount_desc", label: "Amount (high → low)" },
-  { value: "amount_asc", label: "Amount (low → high)" },
-  { value: "due_day", label: "Due day" },
+const RULE_SORTS: TableSortOption[] = [
+  { value: "name_az", label: "Name (A → Z)", field: "name", type: "text", dir: "asc" },
+  { value: "name_za", label: "Name (Z → A)", field: "name", type: "text", dir: "desc" },
+  { value: "amount_desc", label: "Amount (high → low)", field: "amount", type: "number", dir: "desc" },
+  { value: "amount_asc", label: "Amount (low → high)", field: "amount", type: "number", dir: "asc" },
+  { value: "due_day", label: "Due day", field: "dueday", type: "number", dir: "asc" },
 ];
 
 const MONTH_ABBR = [
@@ -101,7 +101,7 @@ export default async function RecurringPage({
       {allRules.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
           <TableSearch targetId="recurring-rows" placeholder="Search name or payee…" className="w-56" />
-          <SortControl options={RULE_SORTS} />
+          <TableSort targetId="recurring-rows" options={RULE_SORTS} />
         </div>
       )}
 
@@ -123,7 +123,11 @@ export default async function RecurringPage({
             </THead>
             <TBody>
               {rules.map((r) => (
-                <TR key={r.id} search={`${r.name} ${r.payee ?? ""}`.toLowerCase()}>
+                <TR
+                  key={r.id}
+                  search={`${r.name} ${r.payee ?? ""}`.toLowerCase()}
+                  sortKeys={{ name: r.name.toLowerCase(), amount: r.default_amount, dueday: r.due_day }}
+                >
                   <TD className="font-medium">
                     <Link href={`/settings/recurring/${r.id}`} className="hover:text-brand hover:underline">
                       {r.name}

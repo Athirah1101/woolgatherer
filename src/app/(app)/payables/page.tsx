@@ -12,7 +12,7 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { daysOverdue, formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { owedAmount } from "@/lib/finance/payables";
-import { SortControl, type SortOption } from "@/components/SortControl";
+import { TableSort, type TableSortOption } from "@/components/TableSort";
 import { TableSearch } from "@/components/TableSearch";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
@@ -77,25 +77,17 @@ export default async function PayablesPage({
     { key: "all", label: "All", count: rows.length },
   ];
 
-  // Sort
-  const SORTS: SortOption[] = [
-    { value: "due_asc", label: "Due date (soonest)" },
-    { value: "due_desc", label: "Due date (latest)" },
-    { value: "amount_desc", label: "Amount (high → low)" },
-    { value: "amount_asc", label: "Amount (low → high)" },
-    { value: "payee_az", label: "Payee (A → Z)" },
+  // Sort options — applied instantly in the browser (see TableSort). The server
+  // renders in the default order (due date soonest first); picking another order
+  // reorders the rows in place with no reload.
+  const SORTS: TableSortOption[] = [
+    { value: "due_asc", label: "Due date (soonest)", field: "due", type: "text", dir: "asc" },
+    { value: "due_desc", label: "Due date (latest)", field: "due", type: "text", dir: "desc" },
+    { value: "amount_desc", label: "Amount (high → low)", field: "amount", type: "number", dir: "desc" },
+    { value: "amount_asc", label: "Amount (low → high)", field: "amount", type: "number", dir: "asc" },
+    { value: "payee_az", label: "Payee (A → Z)", field: "payee", type: "text", dir: "asc" },
   ];
-  const sort = SORTS.some((s) => s.value === sp.sort) ? sp.sort! : "due_asc";
-  const shown = [...filtered].sort((a, b) => {
-    const pa = a.payable, pb = b.payable;
-    switch (sort) {
-      case "due_desc": return (pb.due_date ?? "").localeCompare(pa.due_date ?? "");
-      case "amount_desc": return pb.amount - pa.amount;
-      case "amount_asc": return pa.amount - pb.amount;
-      case "payee_az": return (pa.payee ?? "").localeCompare(pb.payee ?? "");
-      default: return (pa.due_date ?? "").localeCompare(pb.due_date ?? "");
-    }
-  });
+  const shown = [...filtered].sort((a, b) => (a.payable.due_date ?? "").localeCompare(b.payable.due_date ?? ""));
 
   // Distinct vendor names, for the payee auto-complete list.
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
@@ -164,7 +156,7 @@ export default async function PayablesPage({
         </div>
         <div className="flex items-center gap-3">
           <TableSearch targetId="payables-rows" placeholder="Search payables…" className="w-56" />
-          <SortControl options={SORTS} />
+          <TableSort targetId="payables-rows" options={SORTS} />
         </div>
       </div>
 
@@ -202,6 +194,7 @@ export default async function PayablesPage({
                   <TR
                     key={p.id}
                     search={`${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase()}
+                    sortKeys={{ due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase() }}
                   >
                     <TD className="font-medium">
                       {p.payee}
