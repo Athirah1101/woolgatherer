@@ -91,3 +91,14 @@ export async function resolveFeedback(fd: FormData): Promise<void> {
   await supabase.from("feedback").update({ resolved: true }).eq("id", id);
   revalidatePath("/feedback");
 }
+
+/** Finance can reopen a resolved feedback item (moves it back to the open list). */
+export async function unresolveFeedback(fd: FormData): Promise<void> {
+  const session = await requireSession();
+  if (session.profile.role !== "finance") return;
+  const id = (fd.get("id") as string | null)?.trim();
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from("feedback").update({ resolved: false }).eq("id", id);
+  revalidatePath("/feedback");
+}
