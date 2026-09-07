@@ -93,17 +93,23 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     const method_id = s(fd, "payment_method_id") || null;
     if (amountNow <= 0) return { error: "Enter the amount paid" };
 
-    // Accumulate onto any previous partial payments; mark paid only once the
-    // full amount is covered, otherwise "partially_paid".
+    // "Settle in full" closes the bill regardless of the estimate — for USD or
+    // usage-based bills whose real amount only shows up on payment. When ticked,
+    // the payable's amount is corrected to what was actually paid so there's no
+    // phantom remaining. Unticked = a genuine partial payment.
+    const settleFull = Boolean(fd.get("settle_full"));
     const { data: cur } = await supabase
       .from("payables").select("amount, paid_amount").eq("id", id).single();
     const totalPaid = round2(Number(cur?.paid_amount ?? 0) + amountNow);
-    const fullyPaid = toSen(totalPaid) >= toSen(Number(cur?.amount ?? 0));
+    const fullyPaid = settleFull || toSen(totalPaid) >= toSen(Number(cur?.amount ?? 0));
+    // Correct the bill amount to the actual total paid when settling in full.
+    const newAmount = settleFull ? totalPaid : Number(cur?.amount ?? 0);
 
     const { error } = await supabase
       .from("payables")
       .update({
         status: fullyPaid ? "paid" : "partially_paid",
+        amount: newAmount,
         paid_date: s(fd, "paid_date") || todayISO(),
         paid_amount: totalPaid,
         payment_method_id: method_id,
@@ -124,7 +130,7 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account.
     await maybeDeductFromBank(supabase, session.userId, method_id, amountNow);
 
-    const remaining = Math.max(0, round2(Number(cur?.amount ?? 0) - totalPaid));
+    const remaining = Math.max(0, round2(newAmount - totalPaid));
     const { data: paid } = await supabase.from("payables").select("payee").eq("id", id).single();
     await sendNotification(fullyPaid ? "Payable paid" : "Payable partial payment", [
       `${paid?.payee ?? "Payable"} — ${formatMYR(amountNow)} paid${fullyPaid ? "" : ` · ${formatMYR(remaining)} remaining`}`,

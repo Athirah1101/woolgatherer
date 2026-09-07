@@ -407,9 +407,18 @@ function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
       submitLabel="Save Payment"
     >
       <input type="hidden" name="id" value={p.id} />
-      <Field label="Amount Paid Now" required hint="Enter less than the amount remaining to record a partial payment.">
+      <Field label="Amount Paid Now" required hint="Enter the actual amount paid — it can differ from the estimate (e.g. USD rate or usage-based bills).">
         <MoneyInput name="paid_amount" defaultValue={remaining} required />
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="settle_full" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
+        <span>
+          This fully settles the bill
+          <span className="block text-xs text-muted">
+            Marks it Paid and updates the amount to what you actually paid. Untick only for a genuine partial payment.
+          </span>
+        </span>
+      </label>
       <Field label="Paid Date" required><DateWithToday name="paid_date" defaultValue={todayISO()} required /></Field>
       <Field label="Payment Method">
         <Select name="payment_method_id" defaultValue={p.payment_method_id ?? ""}>
