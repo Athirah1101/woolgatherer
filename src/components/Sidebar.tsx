@@ -25,7 +25,12 @@ const FIN: Role[] = ["finance"];
 
 const NAV: Group[] = [
   { items: [{ label: "Dashboard", href: "/dashboard", icon: "🏠", roles: ALL }] },
-  { items: [{ label: "Bank Accounts", href: "/settings/bank-accounts", icon: "🏦", roles: FIN }] },
+  {
+    items: [
+      { label: "Bank Accounts", href: "/settings/bank-accounts", icon: "🏦", roles: FIN },
+      { label: "Cashflow", href: "/cashflow", icon: "💵", roles: FIN_MGMT },
+    ],
+  },
   {
     heading: "Money In",
     items: [
@@ -35,19 +40,17 @@ const NAV: Group[] = [
   },
   {
     heading: "Money Out",
-    items: [{ label: "Payables", href: "/payables", icon: "📤", roles: FIN_MGMT }],
+    items: [
+      { label: "Payables", href: "/payables", icon: "📤", roles: FIN_MGMT },
+      { label: "Refunds", href: "/refunds", icon: "↩️", roles: FIN_MGMT },
+    ],
   },
-  {
-    heading: "Refunds",
-    items: [{ label: "Refunds", href: "/refunds", icon: "↩️", roles: FIN_MGMT }],
-  },
-  { items: [{ label: "Cashflow", href: "/cashflow", icon: "💵", roles: FIN_MGMT }] },
-  { items: [{ label: "Change History", href: "/activity", icon: "🕒", roles: FIN_MGMT }] },
-  { items: [{ label: "Feedback", href: "/feedback", icon: "💬", roles: FIN_MGMT }] },
   {
     heading: "Settings",
     items: [
       { label: "Recurring Payables", href: "/settings/recurring", icon: "🔁", roles: FIN },
+      { label: "Change History", href: "/activity", icon: "🕒", roles: FIN_MGMT },
+      { label: "Feedback", href: "/feedback", icon: "💬", roles: FIN_MGMT },
       { label: "Categories", href: "/settings/categories", icon: "🏷️", roles: FIN },
       { label: "Payment Methods", href: "/settings/payment-methods", icon: "💳", roles: FIN },
       { label: "Users & Access", href: "/settings/users", icon: "👥", roles: FIN },
