@@ -24,9 +24,9 @@ const FIN_MGMT: Role[] = ["finance", "management"];
 const FIN: Role[] = ["finance"];
 
 const NAV: Group[] = [
-  { items: [{ label: "Dashboard", href: "/dashboard", icon: "🏠", roles: ALL }] },
   {
     items: [
+      { label: "Dashboard", href: "/dashboard", icon: "🏠", roles: ALL },
       { label: "Bank Accounts", href: "/settings/bank-accounts", icon: "🏦", roles: FIN },
       { label: "Cashflow", href: "/cashflow", icon: "💵", roles: FIN_MGMT },
     ],
