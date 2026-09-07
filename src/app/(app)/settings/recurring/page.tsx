@@ -6,7 +6,7 @@ import type { Category, PaymentMethod, RecurringPayable } from "@/lib/types";
 import {
   buttonClass, Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
-import { ComboSelect, DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { ComboSelect, DateWithToday, Field, FormDrawer, Input, MoneyInput, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
@@ -188,10 +188,10 @@ function RuleForm({
       <div className="grid grid-cols-2 gap-3">
         <Field label="Default Amount"><MoneyInput name="default_amount" defaultValue={rule?.default_amount ?? 0} /></Field>
         <Field label="Amount Type" hint="Variable = editable each month (e.g. EPF).">
-          <Select name="amount_type" defaultValue={rule?.amount_type ?? "fixed"}>
+          <ComboSelect name="amount_type" defaultValue={rule?.amount_type ?? "fixed"}>
             <option value="fixed">Fixed</option>
             <option value="variable">Variable</option>
-          </Select>
+          </ComboSelect>
         </Field>
       </div>
       <Field label="Payment Method">
@@ -205,10 +205,10 @@ function RuleForm({
         <Field label="End Date (optional)"><DateWithToday name="end_date" defaultValue={rule?.end_date ?? ""} /></Field>
       </div>
       <Field label="Status">
-        <Select name="active" defaultValue={rule?.active === false ? "false" : "true"}>
+        <ComboSelect name="active" defaultValue={rule?.active === false ? "false" : "true"}>
           <option value="true">Active</option>
           <option value="false">Inactive</option>
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Notes"><Textarea name="notes" defaultValue={rule?.notes ?? ""} /></Field>
     </FormDrawer>

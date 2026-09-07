@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { getProfiles } from "@/lib/data/refs";
 import { Card, Chip, PageHeader, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
-import { Field, FormDrawer, Input, Select } from "@/components/form";
+import { Field, FormDrawer, Input, ComboSelect } from "@/components/form";
 import type { Profile } from "@/lib/types";
 import { saveUserAccess } from "../actions";
 
@@ -22,20 +22,20 @@ function AccessForm({ p }: { p: Profile }) {
         <Input name="full_name" defaultValue={p.full_name ?? ""} />
       </Field>
       <Field label="Role" required hint="Sales users only see their own receivables. Finance has full access. Management is read-only high-level.">
-        <Select name="role" defaultValue={p.role}>
+        <ComboSelect name="role" defaultValue={p.role}>
           <option value="finance">Finance</option>
           <option value="sales">Sales</option>
           <option value="management">Management</option>
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Sales PIC name" hint="Must match the Sales PIC used on receivables (only used for Sales role).">
         <Input name="sales_pic" defaultValue={p.sales_pic ?? ""} placeholder="e.g. Aiman Rahman" />
       </Field>
       <Field label="Status">
-        <Select name="active" defaultValue={p.active ? "true" : "false"}>
+        <ComboSelect name="active" defaultValue={p.active ? "true" : "false"}>
           <option value="true">Active</option>
           <option value="false">Disabled</option>
-        </Select>
+        </ComboSelect>
       </Field>
     </FormDrawer>
   );

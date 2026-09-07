@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { getPaymentMethods } from "@/lib/data/refs";
 import { Card, Chip, EmptyState, PageHeader, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
-import { Field, FormDrawer, Input, Select } from "@/components/form";
+import { Field, FormDrawer, Input, ComboSelect } from "@/components/form";
 import { savePaymentMethod } from "../actions";
 
 function MethodForm({ m }: { m?: { id: string; name: string; active: boolean } }) {
@@ -18,10 +18,10 @@ function MethodForm({ m }: { m?: { id: string; name: string; active: boolean } }
         <Input name="name" defaultValue={m?.name} required placeholder="e.g. Bank Transfer" />
       </Field>
       <Field label="Status">
-        <Select name="active" defaultValue={m?.active === false ? "false" : "true"}>
+        <ComboSelect name="active" defaultValue={m?.active === false ? "false" : "true"}>
           <option value="true">Active</option>
           <option value="false">Inactive</option>
-        </Select>
+        </ComboSelect>
       </Field>
     </FormDrawer>
   );

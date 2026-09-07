@@ -63,21 +63,30 @@ export function Select({
 }
 
 /**
- * A calmer drop-in for a native <select>: same `<option>` children and a hidden
- * input named `name`, so forms submit exactly as before — but the menu fades in
- * gently instead of the abrupt native flash. Closes on outside-click / Escape.
+ * A calmer drop-in for a native <select>: same `<option>` children — but the
+ * menu fades in gently instead of the abrupt native flash. Closes on
+ * outside-click / Escape.
+ *
+ * - Pass `name` to submit the value via a hidden input (forms work unchanged).
+ * - Pass `value` to control it from the parent; otherwise it's uncontrolled
+ *   (seeded by `defaultValue`).
+ * - Pass `onValueChange` to react to a pick (e.g. a Sort-by control).
  */
 export function ComboSelect({
   name,
+  value: controlled,
   defaultValue = "",
   required,
   className,
+  onValueChange,
   children,
 }: {
-  name: string;
+  name?: string;
+  value?: string;
   defaultValue?: string;
   required?: boolean;
   className?: string;
+  onValueChange?: (value: string) => void;
   children: ReactNode;
 }) {
   const opts = Children.toArray(children)
@@ -87,9 +96,16 @@ export function ComboSelect({
       return { value: String(p.value ?? ""), label: String(p.children ?? "") };
     });
 
-  const [value, setValue] = useState(defaultValue);
+  const [internal, setInternal] = useState(defaultValue);
+  const value = controlled !== undefined ? controlled : internal;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  function choose(v: string) {
+    if (controlled === undefined) setInternal(v);
+    onValueChange?.(v);
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -110,7 +126,7 @@ export function ComboSelect({
 
   return (
     <div className="relative" ref={ref}>
-      <input type="hidden" name={name} value={value} required={required} />
+      {name && <input type="hidden" name={name} value={value} required={required} />}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -132,7 +148,7 @@ export function ComboSelect({
               type="button"
               role="option"
               aria-selected={o.value === value}
-              onClick={() => { setValue(o.value); setOpen(false); }}
+              onClick={() => choose(o.value)}
               className={cn(
                 "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-gray-100",
                 o.value === value && "bg-indigo-50 font-medium text-brand",

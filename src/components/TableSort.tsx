@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { ComboSelect } from "@/components/form";
 
 export interface TableSortOption {
   value: string;
@@ -26,10 +26,7 @@ export function TableSort({
   options: TableSortOption[];
   label?: string;
 }) {
-  const [value, setValue] = useState(options[0].value);
-
   function apply(next: string) {
-    setValue(next);
     const opt = options.find((o) => o.value === next) ?? options[0];
     const root = document.getElementById(targetId);
     const tbody = root?.querySelector("tbody");
@@ -54,17 +51,13 @@ export function TableSort({
   return (
     <label className="flex items-center gap-2 text-sm text-muted">
       <span className="whitespace-nowrap">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => apply(e.target.value)}
-        className="rounded-lg border border-border bg-surface px-2.5 py-2 text-sm outline-none focus:border-brand"
-      >
+      <ComboSelect defaultValue={options[0].value} onValueChange={apply} className="w-52">
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </ComboSelect>
     </label>
   );
 }

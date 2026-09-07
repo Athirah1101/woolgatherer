@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { buttonClass } from "@/components/ui";
-import { DateWithToday, Field, Input, MoneyInput, Select, SubmitButton, Textarea } from "@/components/form";
+import { DateWithToday, Field, Input, MoneyInput, ComboSelect, SubmitButton, Textarea } from "@/components/form";
 import {
   generateSchedule,
   PAYMENT_PLAN_OPTIONS,
@@ -111,11 +111,11 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
                 <div className="mb-3 flex flex-wrap items-end gap-3">
                   <label className="text-sm">
                     <span className="mb-1 block font-medium">Payment Plan</span>
-                    <Select value={plan} onChange={(e) => setPlan(e.target.value)} className="bg-surface">
+                    <ComboSelect value={plan} onValueChange={setPlan} className="bg-surface">
                       {PAYMENT_PLAN_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
-                    </Select>
+                    </ComboSelect>
                   </label>
                   {plan !== "custom" && (
                     <label className="text-sm">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Card, Chip } from "@/components/ui";
-import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select } from "@/components/form";
+import { DateWithToday, Field, FormDrawer, Input, MoneyInput, ComboSelect } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, formatTime, todayISO } from "@/lib/finance/dates";
 import type { BankAccount } from "@/lib/types";
@@ -32,10 +32,10 @@ function BankForm({ acc }: { acc?: BankAccount }) {
         <DateWithToday name="balance_as_of" defaultValue={acc?.balance_as_of ?? todayISO()} />
       </Field>
       <Field label="Status">
-        <Select name="active" defaultValue={acc?.active === false ? "false" : "true"}>
+        <ComboSelect name="active" defaultValue={acc?.active === false ? "false" : "true"}>
           <option value="true">Active</option>
           <option value="false">Inactive</option>
-        </Select>
+        </ComboSelect>
       </Field>
     </FormDrawer>
   );

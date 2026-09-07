@@ -3,7 +3,7 @@ import { getCategories } from "@/lib/data/refs";
 import {
   Card, Chip, EmptyState, PageHeader, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
-import { Field, FormDrawer, Input, Select } from "@/components/form";
+import { Field, FormDrawer, Input, ComboSelect } from "@/components/form";
 import { saveCategory } from "../actions";
 
 function CategoryForm({
@@ -24,16 +24,16 @@ function CategoryForm({
         <Input name="name" defaultValue={cat?.name} required />
       </Field>
       <Field label="Applies To" required>
-        <Select name="kind" defaultValue={cat?.kind ?? "expense"}>
+        <ComboSelect name="kind" defaultValue={cat?.kind ?? "expense"}>
           <option value="expense">Expenses</option>
           <option value="payable">Payables</option>
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Status">
-        <Select name="active" defaultValue={cat?.active === false ? "false" : "true"}>
+        <ComboSelect name="active" defaultValue={cat?.active === false ? "false" : "true"}>
           <option value="true">Active</option>
           <option value="false">Inactive</option>
-        </Select>
+        </ComboSelect>
       </Field>
     </FormDrawer>
   );

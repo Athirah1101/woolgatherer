@@ -8,7 +8,7 @@ import {
   StatusChip, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
 import {
-  ComboSelect, DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea,
+  ComboSelect, DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Textarea,
 } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
@@ -244,14 +244,14 @@ function RecordPayment({
         </ComboSelect>
       </Field>
       <Field label="Apply To" hint="Leave on auto to fill the earliest outstanding instalment first; overpayment flows to the next.">
-        <Select name="target_schedule_id" defaultValue="">
+        <ComboSelect name="target_schedule_id" defaultValue="">
           <option value="">Auto (earliest outstanding first)</option>
           {openSchedules.map((s) => (
             <option key={s.id} value={s.id}>
               {formatDate(s.due_date)} — {formatMYR(s.outstanding)} outstanding
             </option>
           ))}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Reference / Transaction No.">
         <Input name="reference" />
@@ -314,13 +314,13 @@ function EditReceivable({ r }: { r: import("@/lib/types").Receivable }) {
         <Field label="Total Receivable"><MoneyInput name="total_receivable" defaultValue={r.total_receivable} /></Field>
       </div>
       <Field label="Status">
-        <Select name="status" defaultValue={r.status}>
+        <ComboSelect name="status" defaultValue={r.status}>
           <option value="active">Active</option>
           <option value="on_hold">On Hold</option>
           <option value="stopped">Stopped</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Remarks"><Input name="remarks" defaultValue={r.remarks ?? ""} /></Field>
       <Field label="HRDC Applicable">

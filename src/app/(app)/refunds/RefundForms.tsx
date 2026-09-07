@@ -1,7 +1,7 @@
 "use client";
 
 import { FormDrawer, Field, Input, MoneyInput, Textarea, DateWithToday } from "@/components/form";
-import { Select, ComboSelect } from "@/components/form";
+import { ComboSelect } from "@/components/form";
 import { saveRefundCase } from "./actions";
 import { recordRefund } from "../hrdc/actions";
 import { REFUND_TYPES } from "./refundTypes";
@@ -47,11 +47,11 @@ export function RefundCaseForm({
           <Input name="client_name" defaultValue={defaults?.client_name ?? ""} required />
         </Field>
         <Field label="Refund Type" required>
-          <Select name="refund_type" defaultValue={defaults?.refund_type ?? "hrdc"}>
+          <ComboSelect name="refund_type" defaultValue={defaults?.refund_type ?? "hrdc"}>
             {REFUND_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
-          </Select>
+          </ComboSelect>
         </Field>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
