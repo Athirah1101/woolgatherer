@@ -7,7 +7,7 @@ import {
   AttentionBadge, Card, Chip, EmptyState, PageHeader, SectionTitle, StatusChip,
   SummaryCard, Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
-import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { ComboSelect, DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import {
@@ -236,10 +236,10 @@ function RecordRefund({ claim, methods, remaining }: { claim: HrdcClaim; methods
       <Field label="Refund Amount" required><MoneyInput name="amount" defaultValue={remaining} required /></Field>
       <Field label="Refund Date" required><DateWithToday name="refund_date" required /></Field>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue={claim.refund_payment_method_id ?? ""}>
+        <ComboSelect name="payment_method_id" defaultValue={claim.refund_payment_method_id ?? ""}>
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Reference"><Input name="reference" /></Field>
       <Field label="Notes"><Textarea name="notes" /></Field>

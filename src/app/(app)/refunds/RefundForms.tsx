@@ -1,7 +1,7 @@
 "use client";
 
 import { FormDrawer, Field, Input, MoneyInput, Textarea, DateWithToday } from "@/components/form";
-import { Select } from "@/components/form";
+import { Select, ComboSelect } from "@/components/form";
 import { saveRefundCase } from "./actions";
 import { recordRefund } from "../hrdc/actions";
 import { REFUND_TYPES } from "./refundTypes";
@@ -110,12 +110,12 @@ export function RecordRefundForm({
         <DateWithToday name="refund_date" />
       </Field>
       <Field label="Paid Via">
-        <Select name="payment_method_id" defaultValue="">
+        <ComboSelect name="payment_method_id" defaultValue="">
           <option value="">—</option>
           {methods.map((m) => (
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Reference">
         <Input name="reference" placeholder="Transaction / receipt no." />

@@ -6,7 +6,7 @@ import type { Category, PaymentMethod, RecurringPayable } from "@/lib/types";
 import {
   buttonClass, Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
-import { DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { ComboSelect, DateWithToday, Field, FormDrawer, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
@@ -175,10 +175,10 @@ function RuleForm({
       <Field label="Name" required><Input name="name" defaultValue={rule?.name} placeholder="e.g. EPF, Office Rental" required /></Field>
       <Field label="Vendor / Payee"><Input name="payee" defaultValue={rule?.payee ?? ""} /></Field>
       <Field label="Category">
-        <Select name="category_id" defaultValue={rule?.category_id ?? ""}>
+        <ComboSelect name="category_id" defaultValue={rule?.category_id ?? ""}>
           <option value="">—</option>
           {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <FrequencyFields
         defaultFrequency={rule?.frequency ?? "monthly"}
@@ -195,10 +195,10 @@ function RuleForm({
         </Field>
       </div>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue={rule?.payment_method_id ?? ""}>
+        <ComboSelect name="payment_method_id" defaultValue={rule?.payment_method_id ?? ""}>
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Start Date" required><DateWithToday name="start_date" defaultValue={rule?.start_date ?? todayISO()} required /></Field>

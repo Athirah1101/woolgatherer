@@ -7,7 +7,7 @@ import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
   Table, TBody, TD, TH, THead, TR, cn,
 } from "@/components/ui";
-import { DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
+import { ComboSelect, DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { daysOverdue, formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
@@ -16,7 +16,7 @@ import { TableSort, type TableSortOption } from "@/components/TableSort";
 import { TableSearch } from "@/components/TableSearch";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
-import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable } from "./actions";
+import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage({
   searchParams,
@@ -238,6 +238,17 @@ export default async function PayablesPage({
                                 </InlineSubmit>
                               </form>
                               <MarkPaid p={p} methods={methods} />
+                              {p.status === "partially_paid" && (
+                                <form action={settlePayableInFull}>
+                                  <input type="hidden" name="id" value={p.id} />
+                                  <InlineSubmit
+                                    variant="secondary"
+                                    confirm={`Mark "${p.payee}" as fully settled at ${formatMYR(p.paid_amount ?? 0)} already paid? This clears the remaining balance.`}
+                                  >
+                                    Settle
+                                  </InlineSubmit>
+                                </form>
+                              )}
                               <PayableForm cats={cats} methods={methods} p={p} />
                               <form action={cancelPayable}>
                                 <input type="hidden" name="id" value={p.id} />
@@ -356,10 +367,10 @@ function PayableForm({
         <Input name="payee" defaultValue={payee} list="payable-vendors" required />
       </Field>
       <Field label="Category">
-        <Select name="category_id" defaultValue={categoryId}>
+        <ComboSelect name="category_id" defaultValue={categoryId}>
           <option value="">—</option>
           {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Description"><Input name="description" defaultValue={p?.description ?? ""} /></Field>
       <div className="grid grid-cols-2 gap-3">
@@ -367,10 +378,10 @@ function PayableForm({
         <Field label="Due Date" required><DateWithToday name="due_date" defaultValue={p?.due_date ?? todayISO()} required /></Field>
       </div>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue={methodId}>
+        <ComboSelect name="payment_method_id" defaultValue={methodId}>
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Notes"><Textarea name="notes" defaultValue={p?.notes ?? ""} /></Field>
     </FormDrawer>
@@ -421,10 +432,10 @@ function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
       </label>
       <Field label="Paid Date" required><DateWithToday name="paid_date" defaultValue={todayISO()} required /></Field>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue={p.payment_method_id ?? ""}>
+        <ComboSelect name="payment_method_id" defaultValue={p.payment_method_id ?? ""}>
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Reference"><Input name="reference" /></Field>
     </FormDrawer>

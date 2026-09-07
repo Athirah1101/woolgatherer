@@ -293,6 +293,31 @@ export async function cancelPayable(fd: FormData): Promise<void> {
   refresh();
 }
 
+/**
+ * Close a partially-paid payable in full at the amount already paid — the fix
+ * for a payment recorded without ticking "fully settles". Sets the bill amount
+ * to what's actually been paid so no phantom remaining is left.
+ */
+export async function settlePayableInFull(fd: FormData): Promise<void> {
+  const session = await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  const { data: cur } = await supabase
+    .from("payables").select("amount, paid_amount").eq("id", id).single();
+  const paid = round2(Number(cur?.paid_amount ?? 0));
+  const finalAmount = paid > 0 ? paid : Number(cur?.amount ?? 0);
+  await supabase
+    .from("payables")
+    .update({ status: "paid", amount: finalAmount, paid_amount: finalAmount, paid_date: todayISO() })
+    .eq("id", id);
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: id, action: "settled",
+    actor: session.userId, summary: `Settled in full at ${formatMYR(finalAmount)}`,
+  });
+  refresh();
+}
+
 /** Confirm an auto-imported (email) invoice — clears the "Needs review" flag. */
 export async function approveInvoice(fd: FormData): Promise<void> {
   await financeGuard();

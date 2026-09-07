@@ -8,7 +8,7 @@ import {
   StatusChip, SummaryCard, Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
 import {
-  DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea,
+  ComboSelect, DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Select, Textarea,
 } from "@/components/form";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate, todayISO } from "@/lib/finance/dates";
@@ -238,10 +238,10 @@ function RecordPayment({
         <DateWithToday name="received_date" defaultValue={todayISO()} required />
       </Field>
       <Field label="Payment Method">
-        <Select name="payment_method_id" defaultValue="">
+        <ComboSelect name="payment_method_id" defaultValue="">
           <option value="">—</option>
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </Select>
+        </ComboSelect>
       </Field>
       <Field label="Apply To" hint="Leave on auto to fill the earliest outstanding instalment first; overpayment flows to the next.">
         <Select name="target_schedule_id" defaultValue="">

@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  Children,
   createContext,
+  isValidElement,
   useContext,
   useActionState,
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -56,6 +59,92 @@ export function Select({
     <select {...props} className={cn(inputBase, props.className)}>
       {children}
     </select>
+  );
+}
+
+/**
+ * A calmer drop-in for a native <select>: same `<option>` children and a hidden
+ * input named `name`, so forms submit exactly as before — but the menu fades in
+ * gently instead of the abrupt native flash. Closes on outside-click / Escape.
+ */
+export function ComboSelect({
+  name,
+  defaultValue = "",
+  required,
+  className,
+  children,
+}: {
+  name: string;
+  defaultValue?: string;
+  required?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const opts = Children.toArray(children)
+    .filter(isValidElement)
+    .map((el) => {
+      const p = (el as React.ReactElement<{ value?: string | number; children?: ReactNode }>).props;
+      return { value: String(p.value ?? ""), label: String(p.children ?? "") };
+    });
+
+  const [value, setValue] = useState(defaultValue);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const selected = opts.find((o) => o.value === value);
+  const isPlaceholder = !selected || selected.label === "" || selected.label === "—";
+
+  return (
+    <div className="relative" ref={ref}>
+      <input type="hidden" name={name} value={value} required={required} />
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(inputBase, "flex items-center justify-between text-left", className)}
+      >
+        <span className={cn("truncate", isPlaceholder && "text-muted")}>
+          {selected ? (selected.label || "—") : "—"}
+        </span>
+        <span className={cn("ml-2 shrink-0 text-xs text-muted transition-transform", open && "rotate-180")}>▾</span>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="combo-in absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-lg border border-border bg-surface p-1 shadow-lg"
+        >
+          {opts.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="option"
+              aria-selected={o.value === value}
+              onClick={() => { setValue(o.value); setOpen(false); }}
+              className={cn(
+                "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-gray-100",
+                o.value === value && "bg-indigo-50 font-medium text-brand",
+              )}
+            >
+              <span className="truncate">{o.label || "—"}</span>
+              {o.value === value && <span className="ml-2 text-brand">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 export function MoneyInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
