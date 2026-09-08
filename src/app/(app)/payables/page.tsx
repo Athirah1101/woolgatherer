@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getPayableRows } from "@/lib/data/payables";
-import { getCategories, getPaymentMethods, categoryName } from "@/lib/data/refs";
+import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
 import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
@@ -163,7 +163,7 @@ export default async function PayablesPage({
           ))}
           sorts={SORTS}
           searchPlaceholder="Search payables…"
-          colSpan={(isFinance ? 7 : 6) + (showPaid ? 1 : 0)}
+          colSpan={(isFinance ? 7 : 6) + (showPaid ? 2 : 0)}
           emptyMessage={view === "paid" ? "No paid payables yet." : "No payables match your search."}
           head={
             <TR>
@@ -172,6 +172,7 @@ export default async function PayablesPage({
               <TH>Due Date</TH>
               <TH right>Amount</TH>
               {showPaid && <TH>Paid Date</TH>}
+              {showPaid && <TH>Method</TH>}
               <TH>Status</TH>
               <TH>Attention</TH>
               {isFinance && <TH right>Actions</TH>}
@@ -201,6 +202,7 @@ export default async function PayablesPage({
                       )}
                     </TD>
                     {showPaid && <TD className="whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>}
+                    {showPaid && <TD className="text-muted">{methodName(methods, p.payment_method_id)}</TD>}
                     <TD>
                       <StatusChip
                         label={
