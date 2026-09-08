@@ -7,8 +7,8 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import type { PaymentAllocation, PaymentSchedule, ReceivablePayment } from "@/lib/types";
 import { allocatePayment, summarizeReceivable } from "@/lib/finance/receivables";
-import { todayISO } from "@/lib/finance/dates";
-import { formatMYR, round2 } from "@/lib/finance/money";
+import { todayISO, addMonths } from "@/lib/finance/dates";
+import { formatMYR, round2, toSen, fromSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 
@@ -216,6 +216,90 @@ export async function deleteScheduleRow(fd: FormData): Promise<void> {
   if (!allocs || allocs.length === 0) {
     await supabase.from("payment_schedules").delete().eq("id", id);
     refreshReceivableViews(receivable_id);
+  }
+}
+
+/**
+ * Rebuild a receivable's schedule as equal monthly instalments of `monthly`,
+ * starting `start_date`, enough months to cover the Total Receivable (last
+ * instalment trimmed to hit the exact total). Existing payments are kept and
+ * re-allocated earliest-first, so paid months show "Paid" and the rest show
+ * "Upcoming"/"Overdue". This is the fix for deals entered as a few big lumps.
+ */
+export async function setMonthlyPlan(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const session = await financeGuard();
+    const supabase = await createClient();
+    const receivable_id = s(fd, "receivable_id");
+    const monthly = n(fd, "monthly");
+    const start = s(fd, "start_date");
+    if (!receivable_id || monthly <= 0 || !start) {
+      return { error: "Enter a monthly amount and a first due date." };
+    }
+    const { data: rec } = await supabase
+      .from("receivables").select("total_receivable").eq("id", receivable_id).single();
+    if (!rec) return { error: "Receivable not found" };
+
+    // Build monthly rows until the total is covered; last row = remainder.
+    const totalSen = toSen(Number(rec.total_receivable));
+    const monthlySen = toSen(monthly);
+    if (monthlySen <= 0) return { error: "Monthly amount must be greater than zero." };
+    const rows: { due_date: string; expected_amount: number; sort_order: number }[] = [];
+    let remaining = totalSen;
+    for (let i = 0; remaining > 0 && i < 600; i++) {
+      const take = Math.min(monthlySen, remaining);
+      rows.push({ due_date: addMonths(start, i), expected_amount: fromSen(take), sort_order: i });
+      remaining -= take;
+    }
+
+    // Wipe the old schedule + allocations (keep the payments themselves).
+    const { data: pays } = await supabase
+      .from("receivable_payments")
+      .select("id, amount, received_date, voided")
+      .eq("receivable_id", receivable_id)
+      .order("received_date", { ascending: true });
+    const allPayIds = (pays ?? []).map((p) => p.id);
+    if (allPayIds.length) {
+      await supabase.from("payment_allocations").delete().in("payment_id", allPayIds);
+    }
+    await supabase.from("payment_schedules").delete().eq("receivable_id", receivable_id);
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("payment_schedules")
+      .insert(rows.map((r) => ({ receivable_id, ...r })))
+      .select("id, due_date, expected_amount, sort_order");
+    if (insErr) return { error: insErr.message };
+    const schedules = (inserted ?? []) as PaymentSchedule[];
+
+    // Re-allocate live payments earliest-first across the fresh schedule.
+    const running: PaymentAllocation[] = [];
+    for (const p of (pays ?? []).filter((x) => !x.voided)) {
+      const { allocations } = allocatePayment(Number(p.amount), schedules, running, null);
+      for (const a of allocations) {
+        running.push({ payment_id: p.id, schedule_id: a.schedule_id, amount: a.amount } as PaymentAllocation);
+      }
+    }
+    if (running.length) {
+      await supabase.from("payment_allocations").insert(
+        running.map((a) => ({ payment_id: a.payment_id, schedule_id: a.schedule_id, amount: a.amount })),
+      );
+    }
+
+    // Recompute deal status.
+    const livePays = (pays ?? []).filter((x) => !x.voided) as ReceivablePayment[];
+    const summary = summarizeReceivable(schedules, livePays, running, todayISO());
+    const newStatus = summary.totalExpected > 0 && summary.outstanding <= 0 ? "completed" : "active";
+    await supabase.from("receivables").update({ status: newStatus, payment_plan_type: "monthly" }).eq("id", receivable_id);
+
+    await logActivity(supabase, {
+      entity_type: "receivable", entity_id: receivable_id, action: "monthly_plan_set",
+      actor: session.userId,
+      summary: `Monthly plan: ${formatMYR(monthly)}/mth × ${rows.length}`,
+    });
+    refreshReceivableViews(receivable_id);
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
   }
 }
 

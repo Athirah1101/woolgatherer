@@ -18,7 +18,7 @@ import {
 import { hrdcStageChip } from "@/lib/finance/display";
 import type { HrdcStage } from "@/lib/finance/hrdc";
 import {
-  deleteScheduleRow, recordPayment, saveScheduleRow, updateReceivable, voidPayment,
+  deleteScheduleRow, recordPayment, saveScheduleRow, setMonthlyPlan, updateReceivable, voidPayment,
 } from "../actions";
 
 export default async function ReceivableDetailPage({
@@ -55,7 +55,13 @@ export default async function ReceivableDetailPage({
         actions={
           isFinance ? (
             <div className="flex gap-2">
-              <RecordPayment receivableId={r.id} methods={methods} openSchedules={openSchedules} />
+              <RecordPayment
+                receivableId={r.id}
+                methods={methods}
+                openSchedules={openSchedules}
+                defaultAmount={openSchedules[0]?.outstanding}
+              />
+              <MonthlyPlanForm receivableId={r.id} />
               <EditReceivable r={r} />
             </div>
           ) : undefined
@@ -215,12 +221,39 @@ export default async function ReceivableDetailPage({
 }
 
 // -------------------------------------------------------------- action forms
+/** Rebuild the schedule into equal monthly instalments (fixes lump-entered deals). */
+function MonthlyPlanForm({ receivableId }: { receivableId: string }) {
+  return (
+    <FormDrawer
+      triggerLabel="Set Monthly Plan"
+      triggerVariant="secondary"
+      title="Set Monthly Plan"
+      description="Rebuild the schedule into equal monthly instalments. Existing payments are kept and re-applied to the earliest months."
+      action={setMonthlyPlan}
+      submitLabel="Rebuild Schedule"
+    >
+      <input type="hidden" name="receivable_id" value={receivableId} />
+      <Field label="Monthly Amount" required hint="What the client pays each month (e.g. RM437.50).">
+        <MoneyInput name="monthly" required />
+      </Field>
+      <Field label="First Due Date" required hint="The month the plan starts. One instalment is created per month until the Deal Amount is covered.">
+        <DateWithToday name="start_date" required />
+      </Field>
+      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        This replaces the current schedule rows. Payments you&apos;ve recorded are re-applied to the
+        earliest months automatically, so paid months show “Paid”.
+      </p>
+    </FormDrawer>
+  );
+}
+
 function RecordPayment({
-  receivableId, methods, openSchedules,
+  receivableId, methods, openSchedules, defaultAmount,
 }: {
   receivableId: string;
   methods: { id: string; name: string }[];
   openSchedules: { id: string; due_date: string; outstanding: number }[];
+  defaultAmount?: number;
 }) {
   return (
     <FormDrawer
@@ -231,8 +264,8 @@ function RecordPayment({
       submitLabel="Record Payment"
     >
       <input type="hidden" name="receivable_id" value={receivableId} />
-      <Field label="Amount Received" required>
-        <MoneyInput name="amount" required />
+      <Field label="Amount Received" required hint="Pre-filled with this month's instalment — edit if different.">
+        <MoneyInput name="amount" defaultValue={defaultAmount} required />
       </Field>
       <Field label="Received Date" required>
         <DateWithToday name="received_date" defaultValue={todayISO()} required />
