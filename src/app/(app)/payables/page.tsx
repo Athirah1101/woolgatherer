@@ -12,8 +12,8 @@ import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { daysOverdue, formatDate, todayISO } from "@/lib/finance/dates";
 import { payableAttentionChip } from "@/lib/finance/display";
 import { owedAmount } from "@/lib/finance/payables";
-import { TableSort, type TableSortOption } from "@/components/TableSort";
-import { TableSearch } from "@/components/TableSearch";
+import { type TableSortOption } from "@/components/TableSort";
+import { SortableList, type SortableRow } from "@/components/SortableList";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
@@ -139,9 +139,14 @@ export default async function PayablesPage({
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {VIEWS.map((v) => (
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No payables yet."
+          message="Add a one-off payable, or set up recurring rules in Settings → Recurring Payables."
+        />
+      ) : (
+        <SortableList
+          toolbarLeft={VIEWS.map((v) => (
             <Link
               key={v.key}
               href={v.key === "unpaid" ? "/payables" : `/payables?view=${v.key}`}
@@ -153,49 +158,29 @@ export default async function PayablesPage({
               {v.label} <span className="opacity-70">({v.count})</span>
             </Link>
           ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <TableSearch targetId="payables-rows" placeholder="Search payables…" className="w-56" />
-          <TableSort targetId="payables-rows" options={SORTS} />
-        </div>
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No payables yet."
-          message="Add a one-off payable, or set up recurring rules in Settings → Recurring Payables."
-        />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          title={view === "paid" ? "No paid payables yet." : "Nothing here."}
-          message={view === "paid" ? "Payables you mark as paid will show up here." : "Try a different filter."}
-        />
-      ) : (
-        <Card padded={false} id="payables-rows">
-          <div id="payables-rows-empty" hidden className="px-4 py-10 text-center text-sm text-muted">
-            No payables match your search.
-          </div>
-          <Table>
-            <THead>
-              <TR>
-                <TH>Payee</TH>
-                <TH>Category</TH>
-                <TH>Due Date</TH>
-                <TH right>Amount</TH>
-                <TH>Status</TH>
-                <TH>Attention</TH>
-                {isFinance && <TH right>Actions</TH>}
-              </TR>
-            </THead>
-            <TBody>
-              {shown.map(({ payable: p, attention }) => {
-                const chip = payableAttentionChip(attention.level);
-                return (
-                  <TR
-                    key={p.id}
-                    search={`${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase()}
-                    sortKeys={{ due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase() }}
-                  >
+          sorts={SORTS}
+          searchPlaceholder="Search payables…"
+          colSpan={isFinance ? 7 : 6}
+          emptyMessage={view === "paid" ? "No paid payables yet." : "No payables match your search."}
+          head={
+            <TR>
+              <TH>Payee</TH>
+              <TH>Category</TH>
+              <TH>Due Date</TH>
+              <TH right>Amount</TH>
+              <TH>Status</TH>
+              <TH>Attention</TH>
+              {isFinance && <TH right>Actions</TH>}
+            </TR>
+          }
+          rows={shown.map(({ payable: p, attention }): SortableRow => {
+            const chip = payableAttentionChip(attention.level);
+            return {
+              key: p.id,
+              search: `${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase(),
+              sortKeys: { due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase() },
+              node: (
+                  <TR>
                     <TD className="font-medium">
                       {p.payee}
                       {p.recurring_rule_id && <span className="ml-2 text-xs text-muted">(recurring)</span>}
@@ -261,11 +246,10 @@ export default async function PayablesPage({
                       </TD>
                     )}
                   </TR>
-                );
-              })}
-            </TBody>
-          </Table>
-        </Card>
+              ),
+            };
+          })}
+        />
       )}
     </div>
   );

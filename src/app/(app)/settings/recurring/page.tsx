@@ -4,14 +4,14 @@ import { getRecurringRules } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, PaymentMethod, RecurringPayable } from "@/lib/types";
 import {
-  buttonClass, Card, Chip, EmptyState, PageHeader, SummaryCard, Table, TBody, TD, TH, THead, TR,
+  buttonClass, Chip, EmptyState, PageHeader, SummaryCard, TD, TH, TR,
 } from "@/components/ui";
 import { ComboSelect, DateWithToday, Field, FormDrawer, Input, MoneyInput, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
 import { todayISO, startOfMonth, endOfMonth } from "@/lib/finance/dates";
 import { dueDatesForRule } from "@/lib/finance/payables";
-import { TableSort, type TableSortOption } from "@/components/TableSort";
-import { TableSearch } from "@/components/TableSearch";
+import { type TableSortOption } from "@/components/TableSort";
+import { SortableList, type SortableRow } from "@/components/SortableList";
 import { generateRecurringPayables, saveRecurring } from "../../payables/actions";
 import { FrequencyFields } from "./FrequencyFields";
 
@@ -98,13 +98,6 @@ export default async function RecurringPage({
         <SummaryCard label="Active Rules" value={activeRules.length} tone="green" sub={`${rules.length} total`} />
       </div>
 
-      {allRules.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-          <TableSearch targetId="recurring-rows" placeholder="Search name or payee…" className="w-56" />
-          <TableSort targetId="recurring-rows" options={RULE_SORTS} />
-        </div>
-      )}
-
       {rules.length === 0 ? (
         <EmptyState
           title="No recurring rules yet."
@@ -112,22 +105,23 @@ export default async function RecurringPage({
           action={<RuleForm cats={cats} methods={methods} />}
         />
       ) : (
-        <>
-        <Card padded={false} id="recurring-rows">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Name</TH><TH>Category</TH><TH>Payment Method</TH><TH>Frequency</TH><TH>Due Day</TH>
-                <TH right>Default Amount</TH><TH>Amount</TH><TH>Status</TH><TH right>Actions</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {rules.map((r) => (
-                <TR
-                  key={r.id}
-                  search={`${r.name} ${r.payee ?? ""}`.toLowerCase()}
-                  sortKeys={{ name: r.name.toLowerCase(), amount: r.default_amount, dueday: r.due_day }}
-                >
+        <SortableList
+          sorts={RULE_SORTS}
+          searchPlaceholder="Search name or payee…"
+          colSpan={9}
+          emptyMessage="No recurring rules match your search."
+          head={
+            <TR>
+              <TH>Name</TH><TH>Category</TH><TH>Payment Method</TH><TH>Frequency</TH><TH>Due Day</TH>
+              <TH right>Default Amount</TH><TH>Amount</TH><TH>Status</TH><TH right>Actions</TH>
+            </TR>
+          }
+          rows={rules.map((r): SortableRow => ({
+            key: r.id,
+            search: `${r.name} ${r.payee ?? ""}`.toLowerCase(),
+            sortKeys: { name: r.name.toLowerCase(), amount: r.default_amount, dueday: r.due_day },
+            node: (
+                <TR>
                   <TD className="font-medium">
                     <Link href={`/settings/recurring/${r.id}`} className="hover:text-brand hover:underline">
                       {r.name}
@@ -143,14 +137,9 @@ export default async function RecurringPage({
                   <TD><Chip tone={r.active ? "green" : "gray"}>{r.active ? "Active" : "Inactive"}</Chip></TD>
                   <TD right><RuleForm cats={cats} methods={methods} rule={r} /></TD>
                 </TR>
-              ))}
-            </TBody>
-          </Table>
-        </Card>
-        <div id="recurring-rows-empty" hidden>
-          <EmptyState title="No matching rules." message="No recurring rules match your search." />
-        </div>
-        </>
+            ),
+          }))}
+        />
       )}
     </div>
   );
