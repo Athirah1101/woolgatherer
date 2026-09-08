@@ -9,12 +9,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Payable, HrdcClaim, HrdcRefund } from "@/lib/types";
 import { formatMYR } from "@/lib/finance/money";
-import { formatDate } from "@/lib/finance/dates";
 import { owedAmount } from "@/lib/finance/payables";
 import { refundSummary } from "@/lib/finance/hrdc";
 
 const owing = (p: Payable) => p.status === "unpaid" || p.status === "partially_paid";
 const orderKey = (p: Payable) => p.arrangement_order ?? Number.MAX_SAFE_INTEGER;
+
+/**
+ * The date the list is "for": the upcoming (or today's) Wednesday or Friday, in
+ * Malaysia time (UTC+8), formatted D/M/YYYY (e.g. 2/9/2026).
+ */
+export function nextSendDateLabel(): string {
+  const myt = new Date(Date.now() + 8 * 3600 * 1000); // shift to MYT wall clock
+  const dow = myt.getUTCDay(); // 0=Sun … 3=Wed, 5=Fri
+  let addDays = 0;
+  if (dow !== 3 && dow !== 5) {
+    const toWed = (3 - dow + 7) % 7 || 7;
+    const toFri = (5 - dow + 7) % 7 || 7;
+    addDays = Math.min(toWed, toFri);
+  }
+  const d = new Date(myt.getTime() + addDays * 86400 * 1000);
+  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
+}
 
 /**
  * Compose the payment-arrangement message. Returns null when nothing is on the
@@ -23,12 +39,14 @@ const orderKey = (p: Payable) => p.arrangement_order ?? Number.MAX_SAFE_INTEGER;
 export async function buildPaymentArrangementMessage(
   client: SupabaseClient,
 ): Promise<string | null> {
-  const [{ data: pay }, { data: banks }, { data: claims }, { data: refunds }] = await Promise.all([
+  const [{ data: pay }, { data: banks }, { data: claims }, { data: refunds }, { data: notesRow }] = await Promise.all([
     client.from("payables").select("*"),
     client.from("bank_accounts").select("account_name, current_balance, active"),
     client.from("hrdc_claims").select("*"),
     client.from("hrdc_refunds").select("*"),
+    client.from("app_settings").select("value").eq("key", "arrangement_notes").maybeSingle(),
   ]);
+  const notes = ((notesRow?.value as string | undefined) ?? "").trim();
 
   const payables = (pay ?? []) as Payable[];
   // On the board, still owed, sorted by the manual order.
@@ -37,8 +55,8 @@ export async function buildPaymentArrangementMessage(
     .sort((a, b) => orderKey(a) - orderKey(b));
   if (board.length === 0) return null;
 
+  // On-hold items stay on the board but are left out of the sent message.
   const toPay = board.filter((p) => !p.arrangement_hold);
-  const onHold = board.filter((p) => p.arrangement_hold);
 
   // Bank Balance Now = total across ACTIVE accounts.
   const bankNow = ((banks ?? []) as { current_balance: number | string; active: boolean }[])
@@ -68,34 +86,29 @@ export async function buildPaymentArrangementMessage(
 
   const line = (p: Payable, i: number) => {
     const note = p.arrangement_note?.trim();
-    return `${i + 1}. ${p.payee} — ${formatMYR(owedAmount(p))}${note ? ` (${note})` : ""}`;
-  };
-  const holdLine = (p: Payable) => {
-    const note = p.arrangement_note?.trim();
-    return `• ${p.payee} — ${formatMYR(owedAmount(p))}${note ? ` (${note})` : ""}`;
+    return `${i + 1}. ${p.payee} - ${formatMYR(owedAmount(p))}${note ? ` (${note})` : ""}`;
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Notes block: the user's saved general notes, verbatim (each line as typed).
+  // Falls back to a single blank bullet so the section is never empty.
+  const noteLines = notes ? notes.split(/\r?\n/).filter((l) => l.trim().length > 0) : [];
+
   const lines: string[] = [
-    "📋 FinanceOS — Payment Arrangement",
-    formatDate(today),
+    `*Bank Balance Now ≈ ${formatMYR(bankNow)}*`,
     "",
-    `Bank Balance Now ≈ ${formatMYR(bankNow)}`,
+    `*${nextSendDateLabel()} Payment Priority List:*`,
     "",
-    "Payment Priority List:",
     ...(toPay.length ? toPay.map(line) : ["(none ticked yet)"]),
+    "",
+    "*Notes:*",
+    ...(noteLines.length ? noteLines : ["- "]),
+    "",
+    `🚨 *Bank Balance After Payments ≈ ${formatMYR(afterPayments)}*`,
+    `‼️ *Total Refunds we owe ≈ ${formatMYR(refundsOwed)}*`,
+    `🫪 *Total Owings (Excluding Directors') ≈ ${formatMYR(owingsExclDirectors)}*`,
+    "",
+    "_FinanceOS_",
   ];
-
-  if (onHold.length) {
-    lines.push("", "⏸️ On Hold (not paying yet):", ...onHold.map(holdLine));
-  }
-
-  lines.push(
-    "──────────────",
-    `🚩 Bank Balance After Payments ≈ ${formatMYR(afterPayments)}`,
-    `‼️ Total Refunds we owe ≈ ${formatMYR(refundsOwed)}`,
-    `◻️ Total Owings (Excluding Directors') ≈ ${formatMYR(owingsExclDirectors)}`,
-  );
 
   return lines.join("\n");
 }

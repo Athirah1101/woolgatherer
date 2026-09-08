@@ -1,4 +1,6 @@
 import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { nextSendDateLabel } from "@/lib/integrations/larkPayments";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
@@ -20,11 +22,14 @@ import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejec
 export default async function PayablesPage() {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
-  const [allRows, cats, methods] = await Promise.all([
+  const supabase = await createClient();
+  const [allRows, cats, methods, notesRow] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
     getPaymentMethods(),
+    supabase.from("app_settings").select("value").eq("key", "arrangement_notes").maybeSingle(),
   ]);
+  const arrangementNotes = (notesRow.data?.value as string | undefined) ?? "";
 
   // Auto-imported invoices awaiting confirmation are kept out of every list and
   // total until approved — they live only in the "Needs review" section.
@@ -126,7 +131,7 @@ export default async function PayablesPage() {
 
       {isFinance && (
         <div className="mb-6">
-          <ArrangementBoard items={arrangementItems} />
+          <ArrangementBoard items={arrangementItems} notes={arrangementNotes} dateLabel={nextSendDateLabel()} />
         </div>
       )}
 

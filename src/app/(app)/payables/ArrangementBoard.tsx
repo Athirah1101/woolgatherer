@@ -10,6 +10,7 @@ import {
   postPaymentsToLarkNow,
   removeFromArrangement,
   reorderArrangement,
+  saveArrangementNotes,
   setArrangementHold,
   setArrangementNote,
 } from "./actions";
@@ -32,7 +33,15 @@ function PostNowButton() {
   );
 }
 
-export function ArrangementBoard({ items: initial }: { items: Payable[] }) {
+export function ArrangementBoard({
+  items: initial,
+  notes,
+  dateLabel,
+}: {
+  items: Payable[];
+  notes: string;
+  dateLabel: string;
+}) {
   const [items, setItems] = useState(initial);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -65,7 +74,7 @@ export function ArrangementBoard({ items: initial }: { items: Payable[] }) {
     <Card padded={false}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Payment Arrangement</h2>
+          <h2 className="text-sm font-semibold">{dateLabel} Payment Priority List</h2>
           <p className="text-xs text-muted">
             Auto-posts to Lark every Wed &amp; Fri at noon. Drag to reorder · unpaid items carry over.
           </p>
@@ -139,6 +148,23 @@ export function ArrangementBoard({ items: initial }: { items: Payable[] }) {
           </div>
         </>
       )}
+
+      {/* General notes appended to the message (Public Bank context, upcoming salary, etc.). */}
+      <div className="border-t border-border px-4 py-3">
+        <label className="mb-1 block text-xs font-semibold text-muted">
+          Notes (added to the Lark message)
+        </label>
+        <textarea
+          defaultValue={notes}
+          onBlur={(e) => {
+            if (e.target.value !== notes) startTransition(() => saveArrangementNotes(e.target.value));
+          }}
+          rows={3}
+          placeholder={"- Public Bank has 133k but keep for salary\n- Upcoming salary + claims ≈ 120k\n- HRDC refund to Inox due in 7 days: RM32k"}
+          className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+        />
+        <p className="mt-1 text-xs text-muted">Type each note on its own line — they appear under “Notes:” in the message.</p>
+      </div>
     </Card>
   );
 }

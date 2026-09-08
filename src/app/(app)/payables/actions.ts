@@ -259,6 +259,16 @@ export async function setArrangementNote(id: string, note: string): Promise<void
   refresh();
 }
 
+/** Save the general "Notes" block that goes into the Wed/Fri Lark message. */
+export async function saveArrangementNotes(notes: string): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  await supabase
+    .from("app_settings")
+    .upsert({ key: "arrangement_notes", value: notes, updated_at: new Date().toISOString() });
+  refresh();
+}
+
 /** Persist a new drag order for the board. */
 export async function reorderArrangement(orderedIds: string[]): Promise<void> {
   await financeGuard();
