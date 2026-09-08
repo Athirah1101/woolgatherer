@@ -8,6 +8,7 @@
 // convert with fromSen().
 
 import { fromSen } from "@/lib/finance/money";
+import { todayISO } from "@/lib/finance/dates";
 import { writeBankBalance } from "./bank-sync";
 
 /** Which bank account (by name) the Stripe balance is written to. */
@@ -31,6 +32,7 @@ interface StripePayout {
   amount?: number;
   currency?: string;
   status?: string;
+  arrival_date?: number; // unix seconds — when Stripe expects it in the bank
 }
 interface StripePayoutList {
   data?: StripePayout[];
@@ -74,27 +76,51 @@ async function fetchStripeMyrBalanceSen(): Promise<{ available: number; pending:
 
 /**
  * Sum MYR payouts that have LEFT the Stripe balance but haven't landed in the
- * bank yet (status pending or in_transit). Stripe drops these from `available`
- * the moment a payout is created, so without adding them back the money is
- * invisible — counted by neither Stripe nor the bank — until it arrives in CIMB.
- * Returns sen. Best-effort: a payouts failure never blocks the balance sync.
+ * bank yet. Stripe drops a payout from `available` the moment it's created, so
+ * without adding it back the money is invisible — counted by neither Stripe nor
+ * the bank — until it arrives in CIMB. We count a payout as still-travelling if:
+ *   • status is pending or in_transit, OR
+ *   • status is paid but its arrival_date is today or later (Stripe marks a
+ *     payout "paid" when it sends it, which can be a day or two before the bank
+ *     actually posts it).
+ * Returns sen + a short diagnostic note. Best-effort: a payouts failure never
+ * blocks the balance sync.
  */
-async function fetchInTransitPayoutsSen(): Promise<number> {
+async function fetchInTransitPayouts(): Promise<{ sen: number; note: string }> {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return 0;
+  if (!key) return { sen: 0, note: "" };
   try {
     const res = await fetch("https://api.stripe.com/v1/payouts?limit=100", {
       headers: { Authorization: `Bearer ${key}` },
       cache: "no-store",
     });
     const body = (await res.json()) as StripePayoutList;
-    if (!res.ok) return 0;
-    return (body.data ?? [])
-      .filter((p) => p.currency?.toLowerCase() === STRIPE_CURRENCY)
-      .filter((p) => p.status === "pending" || p.status === "in_transit")
-      .reduce((acc, p) => acc + (p.amount || 0), 0);
-  } catch {
-    return 0;
+    if (!res.ok) {
+      return { sen: 0, note: `payouts unreadable: ${body.error?.message ?? res.statusText}` };
+    }
+    const today = todayISO();
+    const myr = (body.data ?? []).filter((p) => p.currency?.toLowerCase() === STRIPE_CURRENCY);
+    const counts: Record<string, number> = {};
+    let sen = 0;
+    for (const p of myr) {
+      const arrivalISO = p.arrival_date
+        ? new Date(p.arrival_date * 1000).toISOString().slice(0, 10)
+        : "";
+      const travelling =
+        p.status === "pending" ||
+        p.status === "in_transit" ||
+        (p.status === "paid" && arrivalISO !== "" && arrivalISO >= today);
+      if (travelling) {
+        sen += p.amount || 0;
+        counts[p.status ?? "?"] = (counts[p.status ?? "?"] ?? 0) + 1;
+      }
+    }
+    const note = Object.keys(counts).length
+      ? "payouts travelling: " + Object.entries(counts).map(([s, n]) => `${n} ${s}`).join(", ")
+      : "";
+    return { sen, note };
+  } catch (e) {
+    return { sen: 0, note: `payouts error: ${(e as Error).message}` };
   }
 }
 
@@ -106,20 +132,22 @@ async function fetchInTransitPayoutsSen(): Promise<number> {
  * Throws with a human-readable message on any failure.
  */
 export async function syncStripeBalance(): Promise<StripeSyncResult> {
-  const [{ available: availSen, pending: pendSen }, inTransitSen] = await Promise.all([
+  const [{ available: availSen, pending: pendSen }, payouts] = await Promise.all([
     fetchStripeMyrBalanceSen(),
-    fetchInTransitPayoutsSen(),
+    fetchInTransitPayouts(),
   ]);
+  const inTransitSen = payouts.sen;
   const balance = fromSen(availSen + pendSen + inTransitSen);
   const asOf = await writeBankBalance(STRIPE_ACCOUNT_NAME, balance);
-  const parts = [`available ${fromSen(availSen)}`, `pending ${fromSen(pendSen)}`];
-  if (inTransitSen > 0) parts.push(`in-transit ${fromSen(inTransitSen)}`);
+  const detail =
+    `available ${fromSen(availSen)} + pending ${fromSen(pendSen)} + in-transit ${fromSen(inTransitSen)}` +
+    (payouts.note ? ` · ${payouts.note}` : "");
   return {
     balance,
     available: fromSen(availSen),
     pending: fromSen(pendSen),
     inTransit: fromSen(inTransitSen),
     asOf,
-    detail: parts.join(" + "),
+    detail,
   };
 }
