@@ -146,6 +146,9 @@ export default async function ReceivableDetailPage({
                         {isFinance && (
                           <TD right>
                             <div className="flex justify-end gap-1">
+                              {s.outstanding > 0 && (
+                                <RowRecordPayment receivableId={r.id} methods={methods} schedule={s} />
+                              )}
                               <ScheduleRow receivableId={r.id} row={row} />
                               {s.allocated === 0 && (
                                 <form action={deleteScheduleRow}>
@@ -241,7 +244,8 @@ function MonthlyPlanForm({ receivableId }: { receivableId: string }) {
       </Field>
       <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
         This replaces the current schedule rows. Payments you&apos;ve recorded are re-applied to the
-        earliest months automatically, so paid months show “Paid”.
+        earliest months automatically — months that have arrived show “Paid”, and any months covered
+        by money paid ahead show “Paid ahead” until their date comes round.
       </p>
     </FormDrawer>
   );
@@ -301,6 +305,52 @@ function RecordPayment({
       <Field label="Notes">
         <Textarea name="notes" />
       </Field>
+    </FormDrawer>
+  );
+}
+
+/** Per-month "Record" — opens on a single instalment and marks that month paid. */
+function RowRecordPayment({
+  receivableId, methods, schedule,
+}: {
+  receivableId: string;
+  methods: { id: string; name: string }[];
+  schedule: { id: string; due_date: string; outstanding: number };
+}) {
+  return (
+    <FormDrawer
+      triggerLabel="Record"
+      triggerVariant="secondary"
+      title={`Record — ${formatDate(schedule.due_date)}`}
+      description="Marks this month's instalment as paid. The amount is pre-filled with what's outstanding for this month; the payment applies to this month first."
+      action={recordPayment}
+      submitLabel="Record Payment"
+    >
+      <input type="hidden" name="receivable_id" value={receivableId} />
+      <input type="hidden" name="target_schedule_id" value={schedule.id} />
+      <Field label="Amount Received" required hint="Pre-filled with this month's outstanding — edit if the client paid a different amount.">
+        <MoneyInput name="amount" defaultValue={schedule.outstanding} required />
+      </Field>
+      <Field label="Received Date" required>
+        <DateWithToday name="received_date" defaultValue={todayISO()} required />
+      </Field>
+      <Field label="Payment Method">
+        <ComboSelect name="payment_method_id" defaultValue="">
+          <option value="">—</option>
+          {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </ComboSelect>
+      </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="add_bank" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
+        <span>
+          Add to CIMB balance
+          <span className="block text-xs text-muted">
+            Applies only to <strong>CIMB Bank Transfer</strong> receipts. Untick if you&apos;ve already updated the CIMB balance from the bank statement.
+          </span>
+        </span>
+      </label>
+      <Field label="Reference / Transaction No."><Input name="reference" /></Field>
+      <Field label="Notes"><Textarea name="notes" /></Field>
     </FormDrawer>
   );
 }

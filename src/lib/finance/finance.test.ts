@@ -137,7 +137,9 @@ describe("Receivables", () => {
     const acc = record(s, [], [], 12000, "2026-08-01");
     const sum = summarizeReceivable(s, acc.payments, acc.allocations, "2026-08-02");
     expect(sum.schedules[0].status).toBe("paid");
-    expect(sum.schedules[1].status).toBe("paid");
+    // The Sep instalment is covered by money paid ahead but isn't due yet, so it
+    // reads "Paid ahead" — not a green "Paid" — until its date arrives.
+    expect(sum.schedules[1].status).toBe("prepaid");
     expect(sum.outstanding).toBe(0);
     expect(sum.credit).toBe(2000); // 12000 - 10000 remains as unapplied credit
     expect(sum.collectionStatus).toBe("overpaid");

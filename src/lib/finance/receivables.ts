@@ -18,6 +18,7 @@ export type ScheduleStatus =
   | "due_today"
   | "partially_paid"
   | "paid"
+  | "prepaid"
   | "partially_overdue"
   | "overdue";
 
@@ -56,7 +57,10 @@ function scheduleStatus(
 ): ScheduleStatus {
   const outstandingSen = toSen(expected) - toSen(allocated);
   const overdue = diffDays(dueDate, today) > 0; // due date strictly in the past
-  if (outstandingSen <= 0) return "paid";
+  // Fully covered. Only call it "Paid" once the month has actually arrived —
+  // a future month covered by money paid ahead is "Paid ahead", not this
+  // month's done. (Otherwise a big early lump paints future months green.)
+  if (outstandingSen <= 0) return diffDays(dueDate, today) >= 0 ? "paid" : "prepaid";
   if (toSen(allocated) > 0) return overdue ? "partially_overdue" : "partially_paid";
   // nothing paid yet
   if (overdue) return "overdue";
@@ -245,6 +249,7 @@ export function scheduleStatusLabel(s: ScheduleStatus): string {
     due_today: "Due Today",
     partially_paid: "Partially Paid",
     paid: "Paid",
+    prepaid: "Paid ahead",
     partially_overdue: "Partially Overdue",
     overdue: "Overdue",
   }[s];

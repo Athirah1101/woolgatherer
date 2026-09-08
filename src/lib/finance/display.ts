@@ -26,6 +26,7 @@ export function scheduleStatusChip(s: ScheduleStatus): { label: string; tone: To
     due_today: "amber",
     partially_paid: "amber",
     paid: "green",
+    prepaid: "indigo",
     partially_overdue: "orange",
     overdue: "red",
   };
