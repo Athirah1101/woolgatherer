@@ -8,13 +8,45 @@ import type { ActionState } from "@/components/form";
 import type { PaymentAllocation, PaymentSchedule, ReceivablePayment } from "@/lib/types";
 import { allocatePayment, summarizeReceivable } from "@/lib/finance/receivables";
 import { todayISO } from "@/lib/finance/dates";
-import { formatMYR } from "@/lib/finance/money";
+import { formatMYR, round2 } from "@/lib/finance/money";
+import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 
 async function financeGuard() {
   const session = await getSession();
   if (!session || session.profile.role !== "finance") throw new Error("Not authorised");
   return session;
+}
+
+// A payment received via this method tops up this bank account automatically —
+// the mirror of the CIMB deduction on payables. Kept in sync with payables.
+const BANK_ADD_METHOD = "CIMB Bank Transfer";
+const BANK_ADD_ACCOUNT = "Main Operating Account";
+
+/** Add a CIMB-received payment to the CIMB balance (opt-out via the form). */
+async function maybeAddToBank(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  methodId: string | null,
+  amount: number,
+) {
+  if (!methodId || amount <= 0) return;
+  const { data: method } = await supabase
+    .from("payment_methods").select("name").eq("id", methodId).single();
+  if (method?.name?.toLowerCase() !== BANK_ADD_METHOD.toLowerCase()) return;
+  const { data: acc } = await supabase
+    .from("bank_accounts").select("id, current_balance").ilike("account_name", BANK_ADD_ACCOUNT).single();
+  if (!acc) return;
+  const newBalance = round2(Number(acc.current_balance) + amount);
+  await supabase.from("bank_accounts").update({ current_balance: newBalance }).eq("id", acc.id);
+  await recordCashSnapshot(supabase);
+  await logActivity(supabase, {
+    entity_type: "bank_account", entity_id: acc.id, action: "auto_credit",
+    actor: userId, summary: `+${formatMYR(amount)} to ${BANK_ADD_ACCOUNT} (payment received)`,
+  });
+  revalidatePath("/settings/bank-accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/cashflow");
 }
 const s = (fd: FormData, k: string) => (fd.get(k) as string | null)?.trim() ?? "";
 const n = (fd: FormData, k: string) => {
@@ -265,6 +297,12 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
       summary: `${formatMYR(amount)} received${credit > 0 ? ` (${formatMYR(credit)} credit)` : ""}`,
       new_value: { amount, received_date, credit },
     });
+    // If received via CIMB Bank Transfer, top up the CIMB balance — unless the
+    // user unticked "add to CIMB" (e.g. they already updated it from the bank).
+    if (fd.get("add_bank") !== null) {
+      await maybeAddToBank(supabase, session.userId, s(fd, "payment_method_id") || null, amount);
+    }
+
     const { data: rec } = await supabase.from("receivables").select("client_name").eq("id", receivable_id).single();
     await sendNotification("Receivable payment received", [
       `${rec?.client_name ?? "Client"} — ${formatMYR(amount)} on ${received_date}`,

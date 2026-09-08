@@ -243,6 +243,15 @@ function RecordPayment({
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </ComboSelect>
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="add_bank" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
+        <span>
+          Add to CIMB balance
+          <span className="block text-xs text-muted">
+            Applies only to <strong>CIMB Bank Transfer</strong> receipts. Untick if you&apos;ve already updated the CIMB balance from the bank statement, so it isn&apos;t added twice.
+          </span>
+        </span>
+      </label>
       <Field label="Apply To" hint="Leave on auto to fill the earliest outstanding instalment first; overpayment flows to the next.">
         <ComboSelect name="target_schedule_id" defaultValue="">
           <option value="">Auto (earliest outstanding first)</option>
