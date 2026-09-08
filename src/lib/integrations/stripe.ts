@@ -27,13 +27,24 @@ interface StripeBalanceResponse {
   pending?: StripeBalanceLine[];
   error?: { message?: string };
 }
+interface StripePayout {
+  amount?: number;
+  currency?: string;
+  status?: string;
+}
+interface StripePayoutList {
+  data?: StripePayout[];
+  error?: { message?: string };
+}
 
 export interface StripeSyncResult {
   /** Total MYR balance written, in ringgit. */
   balance: number;
   available: number; // ringgit
   pending: number; // ringgit
+  inTransit: number; // ringgit — paid out, not yet in the bank
   asOf: string;
+  detail?: string;
 }
 
 function sumCurrency(lines: StripeBalanceLine[] | undefined, currency: string): number {
@@ -62,13 +73,53 @@ async function fetchStripeMyrBalanceSen(): Promise<{ available: number; pending:
 }
 
 /**
- * Fetch the Stripe MYR balance and write it to the "Stripe" bank account.
- * The stored balance = available + pending (the full MYR balance Stripe holds).
+ * Sum MYR payouts that have LEFT the Stripe balance but haven't landed in the
+ * bank yet (status pending or in_transit). Stripe drops these from `available`
+ * the moment a payout is created, so without adding them back the money is
+ * invisible — counted by neither Stripe nor the bank — until it arrives in CIMB.
+ * Returns sen. Best-effort: a payouts failure never blocks the balance sync.
+ */
+async function fetchInTransitPayoutsSen(): Promise<number> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return 0;
+  try {
+    const res = await fetch("https://api.stripe.com/v1/payouts?limit=100", {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: "no-store",
+    });
+    const body = (await res.json()) as StripePayoutList;
+    if (!res.ok) return 0;
+    return (body.data ?? [])
+      .filter((p) => p.currency?.toLowerCase() === STRIPE_CURRENCY)
+      .filter((p) => p.status === "pending" || p.status === "in_transit")
+      .reduce((acc, p) => acc + (p.amount || 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Fetch the Stripe MYR position and write it to the "Stripe" bank account.
+ * Balance = available + pending + in-transit payouts — so money mid-way from
+ * Stripe to the bank is still counted (it's real cash, just travelling), and
+ * drops off once the payout lands in CIMB and the bank balance reflects it.
  * Throws with a human-readable message on any failure.
  */
 export async function syncStripeBalance(): Promise<StripeSyncResult> {
-  const { available: availSen, pending: pendSen } = await fetchStripeMyrBalanceSen();
-  const balance = fromSen(availSen + pendSen);
+  const [{ available: availSen, pending: pendSen }, inTransitSen] = await Promise.all([
+    fetchStripeMyrBalanceSen(),
+    fetchInTransitPayoutsSen(),
+  ]);
+  const balance = fromSen(availSen + pendSen + inTransitSen);
   const asOf = await writeBankBalance(STRIPE_ACCOUNT_NAME, balance);
-  return { balance, available: fromSen(availSen), pending: fromSen(pendSen), asOf };
+  const parts = [`available ${fromSen(availSen)}`, `pending ${fromSen(pendSen)}`];
+  if (inTransitSen > 0) parts.push(`in-transit ${fromSen(inTransitSen)}`);
+  return {
+    balance,
+    available: fromSen(availSen),
+    pending: fromSen(pendSen),
+    inTransit: fromSen(inTransitSen),
+    asOf,
+    detail: parts.join(" + "),
+  };
 }
