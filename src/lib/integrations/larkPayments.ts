@@ -8,8 +8,22 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Payable, HrdcClaim, HrdcRefund } from "@/lib/types";
-import { formatMYR } from "@/lib/finance/money";
 import { owedAmount } from "@/lib/finance/payables";
+
+/**
+ * Compact RM for the boss message: RM9.4k, RM3.7k, RM1mil, RM750.
+ * Rounded to 1 decimal (trailing .0 dropped) — matches the WhatsApp shorthand.
+ */
+function rm(v: number): string {
+  const neg = v < 0;
+  const a = Math.abs(v);
+  const trim = (x: number) => String(Math.round(x * 10) / 10);
+  let out: string;
+  if (a >= 1_000_000) out = `${trim(a / 1_000_000)}mil`;
+  else if (a >= 1_000) out = `${trim(a / 1_000)}k`;
+  else out = String(Math.round(a));
+  return `${neg ? "-" : ""}RM${out}`;
+}
 import { refundSummary } from "@/lib/finance/hrdc";
 
 const owing = (p: Payable) => p.status === "unpaid" || p.status === "partially_paid";
@@ -86,7 +100,7 @@ export async function buildPaymentArrangementMessage(
 
   const line = (p: Payable, i: number) => {
     const note = p.arrangement_note?.trim();
-    return `${i + 1}. ${p.payee} - ${formatMYR(owedAmount(p))}${note ? ` (${note})` : ""}`;
+    return `${i + 1}. ${p.payee} - ${rm(owedAmount(p))}${note ? ` (${note})` : ""}`;
   };
 
   // Notes block: the user's saved general notes, verbatim (each line as typed).
@@ -94,7 +108,7 @@ export async function buildPaymentArrangementMessage(
   const noteLines = notes ? notes.split(/\r?\n/).filter((l) => l.trim().length > 0) : [];
 
   const lines: string[] = [
-    `*Bank Balance Now ≈ ${formatMYR(bankNow)}*`,
+    `*Bank Balance Now ≈ ${rm(bankNow)}*`,
     "",
     `*${nextSendDateLabel()} Payment Priority List:*`,
     "",
@@ -103,9 +117,9 @@ export async function buildPaymentArrangementMessage(
     "*Notes:*",
     ...(noteLines.length ? noteLines : ["- "]),
     "",
-    `🚨 *Bank Balance After Payments ≈ ${formatMYR(afterPayments)}*`,
-    `‼️ *Total Refunds we owe ≈ ${formatMYR(refundsOwed)}*`,
-    `🫪 *Total Owings (Excluding Directors') ≈ ${formatMYR(owingsExclDirectors)}*`,
+    `🚨 *Bank Balance After Payments ≈ ${rm(afterPayments)}*`,
+    `‼️ *Total Refunds we owe ≈ ${rm(refundsOwed)}*`,
+    `🫪 *Total Owings (Excluding Directors') ≈ ${rm(owingsExclDirectors)}*`,
     "",
     "_FinanceOS_",
   ];
