@@ -23,7 +23,7 @@
 
 import { writeBankBalance } from "./bank-sync";
 import { addDays, todayISO } from "@/lib/finance/dates";
-import { round2 } from "@/lib/finance/money";
+import { round2, formatMYR } from "@/lib/finance/money";
 
 const PAYEX_ACCOUNT_NAME = "Payex";
 const MYR = "MYR";
@@ -177,6 +177,26 @@ interface PayexTxn {
   amount?: number | string;
   amount_refunded?: number | string;
   txn_date?: string;
+  // Best-effort identity fields (Payex naming varies) — used to name a failed
+  // collection in the sync summary. Any that exist get picked up.
+  customer_name?: string;
+  name?: string;
+  payer_name?: string;
+  full_name?: string;
+  reference?: string;
+  reference_number?: string;
+  description?: string;
+  email?: string;
+  mobile?: string;
+}
+
+/** A readable "who" for a Payex transaction, from whichever identity field exists. */
+function txnWho(t: PayexTxn): string {
+  return (
+    t.customer_name || t.name || t.payer_name || t.full_name ||
+    t.description || t.reference || t.reference_number || t.email || t.mobile ||
+    "unknown"
+  ).toString().trim();
 }
 interface PayexSettlement {
   currency?: string;
@@ -214,15 +234,22 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
 
   // Collections: successful MYR transactions, net of refunds.
   const statusCount = new Map<string, number>();
+  const failedList: string[] = []; // human labels for non-successful MYR txns
   let collected = 0;
   let collectedCount = 0;
   for (const t of txns) {
     const st = lc(t.status);
     statusCount.set(st || "(blank)", (statusCount.get(st || "(blank)") ?? 0) + 1);
     if ((t.currency ?? MYR).toUpperCase() !== MYR) continue;
-    if (!COLLECTED_STATUSES.has(st)) continue;
     const txnDay = dayKey(t.txn_date);
     if (txnDay && txnDay < start) continue; // outside our window
+    if (!COLLECTED_STATUSES.has(st)) {
+      // Not money in — record who/what so the summary can name it.
+      const amt = toNum(t.amount ?? t.base_amount);
+      const date = txnDay ? toISO(txnDay) : "";
+      failedList.push(`${txnWho(t)} — ${formatMYR(amt)}${date ? ` on ${date}` : ""} (${st || "?"})`);
+      continue;
+    }
     const gross = toNum(t.amount ?? t.base_amount);
     collected += gross - toNum(t.amount_refunded);
     collectedCount++;
@@ -261,7 +288,8 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     .map(([s, n]) => `${s}:${n}`)
     .join(" ");
   const base = anchorBalance ? `anchor ${round2(anchorBalance)} + ` : "";
-  const detail = `${base}${collectedCount} collected − ${settledCount} settlements (since ${start}) · statuses ${breakdown}`;
+  const failedNote = failedList.length ? ` · ⚠ not collected: ${failedList.join("; ")}` : "";
+  const detail = `${base}${collectedCount} collected − ${settledCount} settlements (since ${start}) · statuses ${breakdown}${failedNote}`;
 
   return { balance, collected: round2(collected), settled: round2(settled), asOf, detail };
 }
