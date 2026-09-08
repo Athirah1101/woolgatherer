@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
 import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
-  Table, TBody, TD, TH, THead, TR, cn,
+  Table, TBody, TD, TH, THead, TR,
 } from "@/components/ui";
 import { ComboSelect, DateWithToday, Field, FormDrawer, InlineSubmit, Input, MoneyInput, Textarea } from "@/components/form";
 import { formatMYR, sumMoney } from "@/lib/finance/money";
@@ -18,17 +17,14 @@ import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
-export default async function PayablesPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | undefined>>;
-}) {
+export default async function PayablesPage() {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
-  const sp = await searchParams;
-  const allRows = await getPayableRows();
-  const cats = await getCategories("payable");
-  const methods = await getPaymentMethods();
+  const [allRows, cats, methods] = await Promise.all([
+    getPayableRows(),
+    getCategories("payable"),
+    getPaymentMethods(),
+  ]);
 
   // Auto-imported invoices awaiting confirmation are kept out of every list and
   // total until approved — they live only in the "Needs review" section.
@@ -64,33 +60,25 @@ export default async function PayablesPage({
       .map((r) => owedAmount(r.payable)),
   );
 
-  // ---- View filter: default hides paid so the list stays short ----
+  // View tabs (To Pay / Paid / All) are filtered in the browser (see
+  // SortableList) so switching is instant — no reload, no scroll jump.
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
-  const view = sp.view === "paid" || sp.view === "all" ? sp.view : "unpaid";
-  // Search is done live in the browser (see TableSearch) so typing never reloads
-  // the page — the server only splits by the To Pay / Paid / All view.
-  const filtered =
-    view === "all" ? rows : view === "paid" ? rows.filter((r) => r.payable.status === "paid") : rows.filter(owing);
-  const VIEWS: { key: string; label: string; count: number }[] = [
+  const VIEWS = [
     { key: "unpaid", label: "To Pay", count: unpaid.length },
     { key: "paid", label: "Paid", count: paidCount },
     { key: "all", label: "All", count: rows.length },
   ];
-  // The Paid view doubles as an expenses tracker — show when each bill was paid.
-  const showPaid = view === "paid";
 
   // Sort options — applied instantly in the browser (see SortableList).
   const SORTS: TableSortOption[] = [
-    ...(showPaid
-      ? ([{ value: "paid_desc", label: "Paid date (recent)", field: "paiddate", type: "text", dir: "desc" }] as TableSortOption[])
-      : []),
     { value: "due_asc", label: "Due date (soonest)", field: "due", type: "text", dir: "asc" },
     { value: "due_desc", label: "Due date (latest)", field: "due", type: "text", dir: "desc" },
     { value: "amount_desc", label: "Amount (high → low)", field: "amount", type: "number", dir: "desc" },
     { value: "amount_asc", label: "Amount (low → high)", field: "amount", type: "number", dir: "asc" },
     { value: "payee_az", label: "Payee (A → Z)", field: "payee", type: "text", dir: "asc" },
+    { value: "paid_desc", label: "Paid date (recent)", field: "paiddate", type: "text", dir: "desc" },
   ];
-  const shown = [...filtered].sort((a, b) => (a.payable.due_date ?? "").localeCompare(b.payable.due_date ?? ""));
+  const shown = [...rows].sort((a, b) => (a.payable.due_date ?? "").localeCompare(b.payable.due_date ?? ""));
 
   // Distinct vendor names, for the payee auto-complete list.
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
@@ -149,30 +137,19 @@ export default async function PayablesPage({
         />
       ) : (
         <SortableList
-          toolbarLeft={VIEWS.map((v) => (
-            <Link
-              key={v.key}
-              href={v.key === "unpaid" ? "/payables" : `/payables?view=${v.key}`}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium transition",
-                view === v.key ? "bg-brand text-white" : "border border-border bg-surface hover:bg-gray-50",
-              )}
-            >
-              {v.label} <span className="opacity-70">({v.count})</span>
-            </Link>
-          ))}
+          views={VIEWS}
           sorts={SORTS}
           searchPlaceholder="Search payables…"
-          colSpan={(isFinance ? 7 : 6) + (showPaid ? 2 : 0)}
-          emptyMessage={view === "paid" ? "No paid payables yet." : "No payables match your search."}
+          colSpan={isFinance ? 9 : 8}
+          emptyMessage="No payables here."
           head={
             <TR>
               <TH>Payee</TH>
               <TH>Category</TH>
               <TH>Due Date</TH>
               <TH right>Amount</TH>
-              {showPaid && <TH>Paid Date</TH>}
-              {showPaid && <TH>Method</TH>}
+              <TH className="paid-col">Paid Date</TH>
+              <TH className="paid-col">Method</TH>
               <TH>Status</TH>
               <TH>Attention</TH>
               {isFinance && <TH right>Actions</TH>}
@@ -183,6 +160,7 @@ export default async function PayablesPage({
             return {
               key: p.id,
               search: `${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase(),
+              tags: p.status === "paid" ? ["paid"] : owing({ payable: p }) ? ["unpaid"] : [],
               sortKeys: { due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase(), paiddate: p.paid_date ?? "" },
               node: (
                   <TR>
@@ -201,8 +179,8 @@ export default async function PayablesPage({
                         </div>
                       )}
                     </TD>
-                    {showPaid && <TD className="whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>}
-                    {showPaid && <TD className="text-muted">{methodName(methods, p.payment_method_id)}</TD>}
+                    <TD className="paid-col whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>
+                    <TD className="paid-col text-muted">{methodName(methods, p.payment_method_id)}</TD>
                     <TD>
                       <StatusChip
                         label={

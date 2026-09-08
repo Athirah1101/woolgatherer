@@ -49,3 +49,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .combo-in { animation: comboIn 150ms ease-out; transform-origin: top; }
+
+/* Payables "Paid" view: columns only relevant to paid items (Paid Date, Method)
+   are present in every view but shown only when the Paid tab is active. */
+[data-view]:not([data-view="paid"]) .paid-col { display: none; }
