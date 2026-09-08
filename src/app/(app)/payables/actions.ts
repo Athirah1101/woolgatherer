@@ -127,8 +127,11 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     // that amount — auto-create a payable to him so the debt is tracked.
     await maybeCreatePayback(supabase, session.userId, id, method_id, amountNow);
 
-    // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account.
-    await maybeDeductFromBank(supabase, session.userId, method_id, amountNow);
+    // If paid via CIMB Bank Transfer, deduct the amount from the CIMB account —
+    // unless the user unticked "deduct from CIMB" (e.g. they already updated the
+    // CIMB balance from the bank statement, so it must not be subtracted twice).
+    const deductBank = fd.get("deduct_bank") !== null;
+    if (deductBank) await maybeDeductFromBank(supabase, session.userId, method_id, amountNow);
 
     const remaining = Math.max(0, round2(newAmount - totalPaid));
     const { data: paid } = await supabase.from("payables").select("payee").eq("id", id).single();

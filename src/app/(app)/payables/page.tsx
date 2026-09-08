@@ -76,11 +76,14 @@ export default async function PayablesPage({
     { key: "paid", label: "Paid", count: paidCount },
     { key: "all", label: "All", count: rows.length },
   ];
+  // The Paid view doubles as an expenses tracker — show when each bill was paid.
+  const showPaid = view === "paid";
 
-  // Sort options — applied instantly in the browser (see TableSort). The server
-  // renders in the default order (due date soonest first); picking another order
-  // reorders the rows in place with no reload.
+  // Sort options — applied instantly in the browser (see SortableList).
   const SORTS: TableSortOption[] = [
+    ...(showPaid
+      ? ([{ value: "paid_desc", label: "Paid date (recent)", field: "paiddate", type: "text", dir: "desc" }] as TableSortOption[])
+      : []),
     { value: "due_asc", label: "Due date (soonest)", field: "due", type: "text", dir: "asc" },
     { value: "due_desc", label: "Due date (latest)", field: "due", type: "text", dir: "desc" },
     { value: "amount_desc", label: "Amount (high → low)", field: "amount", type: "number", dir: "desc" },
@@ -160,7 +163,7 @@ export default async function PayablesPage({
           ))}
           sorts={SORTS}
           searchPlaceholder="Search payables…"
-          colSpan={isFinance ? 7 : 6}
+          colSpan={(isFinance ? 7 : 6) + (showPaid ? 1 : 0)}
           emptyMessage={view === "paid" ? "No paid payables yet." : "No payables match your search."}
           head={
             <TR>
@@ -168,6 +171,7 @@ export default async function PayablesPage({
               <TH>Category</TH>
               <TH>Due Date</TH>
               <TH right>Amount</TH>
+              {showPaid && <TH>Paid Date</TH>}
               <TH>Status</TH>
               <TH>Attention</TH>
               {isFinance && <TH right>Actions</TH>}
@@ -178,7 +182,7 @@ export default async function PayablesPage({
             return {
               key: p.id,
               search: `${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase(),
-              sortKeys: { due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase() },
+              sortKeys: { due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase(), paiddate: p.paid_date ?? "" },
               node: (
                   <TR>
                     <TD className="font-medium">
@@ -196,6 +200,7 @@ export default async function PayablesPage({
                         </div>
                       )}
                     </TD>
+                    {showPaid && <TD className="whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>}
                     <TD>
                       <StatusChip
                         label={
@@ -421,6 +426,15 @@ function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </ComboSelect>
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="deduct_bank" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
+        <span>
+          Deduct from CIMB balance
+          <span className="block text-xs text-muted">
+            Applies only to <strong>CIMB Bank Transfer</strong> payments. Untick if you&apos;ve already updated the CIMB balance from the bank statement, so it isn&apos;t subtracted twice.
+          </span>
+        </span>
+      </label>
       <Field label="Reference"><Input name="reference" /></Field>
     </FormDrawer>
   );
