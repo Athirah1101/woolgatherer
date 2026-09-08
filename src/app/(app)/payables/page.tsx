@@ -187,7 +187,7 @@ export default async function PayablesPage({
                       {p.description && <div className="text-xs text-muted">{p.description}</div>}
                     </TD>
                     <TD className="text-muted">{categoryName(cats, p.category_id)}</TD>
-                    <TD>{formatDate(p.due_date)}</TD>
+                    <TD className="whitespace-nowrap">{formatDate(p.due_date)}</TD>
                     <TD right className="font-medium">
                       {formatMYR(p.status === "paid" ? p.paid_amount ?? p.amount : p.amount)}
                       {p.status === "partially_paid" && (
@@ -213,7 +213,7 @@ export default async function PayablesPage({
                     <TD><AttentionBadge label={chip.label} tone={chip.tone} /></TD>
                     {isFinance && (
                       <TD right>
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-wrap justify-end gap-1 [&_button]:px-2 [&_button]:py-1 [&_button]:text-xs">
                           {(p.status === "unpaid" || p.status === "partially_paid") && (
                             <>
                               <form action={p.arrangement ? removeFromArrangement : addToArrangement}>
