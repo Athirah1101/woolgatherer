@@ -100,7 +100,10 @@ export async function buildPaymentArrangementMessage(
 
   const line = (p: Payable, i: number) => {
     const note = p.arrangement_note?.trim();
-    return `${i + 1}. ${p.payee} - ${rm(owedAmount(p))}${note ? ` (${note})` : ""}`;
+    // Prefer the description (e.g. "Ray & Edison EPF") over the bare payee ("EPF")
+    // so the boss message names exactly which bill it is. Falls back to payee.
+    const name = p.description?.trim() || p.payee;
+    return `${i + 1}. ${name} - ${rm(owedAmount(p))}${note ? ` (${note})` : ""}`;
   };
 
   // Notes block: the user's saved general notes, verbatim (each line as typed).

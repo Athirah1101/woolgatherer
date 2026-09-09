@@ -110,7 +110,7 @@ export function ArrangementBoard({
                 </span>
                 <span className="w-5 text-right text-sm tabular-nums text-muted">{i + 1}.</span>
                 <div className="min-w-[8rem] flex-1">
-                  <div className="text-sm font-medium">{p.payee}</div>
+                  <div className="text-sm font-medium">{p.description?.trim() || p.payee}</div>
                   <div className="text-xs text-muted">Due {formatDate(p.due_date)}</div>
                 </div>
                 <input
