@@ -69,12 +69,16 @@ export async function buildPaymentArrangementMessage(
     .sort((a, b) => orderKey(a) - orderKey(b));
   if (board.length === 0) return null;
 
-  // On-hold items stay on the board but are left out of the sent message.
-  const toPay = board.filter((p) => !p.arrangement_hold);
+  // Priority = will-pay-now: not on hold, not KIV. On-hold items stay on the
+  // board but are left out of the message; KIV items go in their own section.
+  const toPay = board.filter((p) => !p.arrangement_hold && !p.arrangement_kiv);
+  const kivList = board.filter((p) => p.arrangement_kiv);
 
-  // Bank Balance Now = total across ACTIVE accounts.
-  const bankNow = ((banks ?? []) as { current_balance: number | string; active: boolean }[])
-    .filter((b) => b.active)
+  // Bank Balance Now = CIMB (the "Main Operating Account") + Airwallex only —
+  // the money actually available for this pay run (other accounts are kept aside).
+  const BALANCE_ACCOUNTS = ["main operating account", "airwallex"];
+  const bankNow = ((banks ?? []) as { account_name: string; current_balance: number | string }[])
+    .filter((b) => BALANCE_ACCOUNTS.includes((b.account_name ?? "").trim().toLowerCase()))
     .reduce((sum, b) => sum + Number(b.current_balance || 0), 0);
 
   const payTotal = toPay.reduce((sum, p) => sum + owedAmount(p), 0);
@@ -116,6 +120,7 @@ export async function buildPaymentArrangementMessage(
     `*${nextSendDateLabel()} Payment Priority List:*`,
     "",
     ...(toPay.length ? toPay.map(line) : ["(none ticked yet)"]),
+    ...(kivList.length ? ["", "*KIV (Keep In View):*", ...kivList.map(line)] : []),
     "",
     "*Notes:*",
     ...(noteLines.length ? noteLines : ["- "]),

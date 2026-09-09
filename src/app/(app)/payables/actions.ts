@@ -248,6 +248,14 @@ export async function setArrangementHold(id: string, hold: boolean): Promise<voi
   refresh();
 }
 
+/** Move a board item between the Priority list and the KIV (keep-in-view) list. */
+export async function setArrangementKiv(id: string, kiv: boolean): Promise<void> {
+  await financeGuard();
+  const supabase = await createClient();
+  await supabase.from("payables").update({ arrangement_kiv: kiv }).eq("id", id);
+  refresh();
+}
+
 /** Save the short per-line note shown in the Lark message, e.g. a reason. */
 export async function setArrangementNote(id: string, note: string): Promise<void> {
   await financeGuard();

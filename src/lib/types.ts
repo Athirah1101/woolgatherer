@@ -125,6 +125,7 @@ export interface Payable {
   // Payment-arrangement board (the Wed/Fri Lark list).
   arrangement?: boolean;
   arrangement_hold?: boolean;
+  arrangement_kiv?: boolean;
   arrangement_order?: number | null;
   arrangement_note?: string | null;
 }
