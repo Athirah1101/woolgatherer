@@ -5,7 +5,8 @@ import { Card, Chip, buttonClass } from "@/components/ui";
 import { formatMYR } from "@/lib/finance/money";
 import { formatDate } from "@/lib/finance/dates";
 import { owedAmount } from "@/lib/finance/payables";
-import type { Payable } from "@/lib/types";
+import type { Payable, PaymentMethod } from "@/lib/types";
+import { MarkPaid } from "./MarkPaid";
 import {
   postPaymentsToLarkNow,
   removeFromArrangement,
@@ -40,10 +41,12 @@ export function ArrangementBoard({
   items: initial,
   notes,
   dateLabel,
+  methods,
 }: {
   items: Payable[];
   notes: string;
   dateLabel: string;
+  methods: PaymentMethod[];
 }) {
   const [items, setItems] = useState(initial);
   const [drag, setDrag] = useState<{ section: Section; index: number } | null>(null);
@@ -124,6 +127,7 @@ export function ArrangementBoard({
           className="min-w-[9rem] flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm"
         />
         <span className="w-24 text-right text-sm font-medium tabular-nums">{formatMYR(owedAmount(p))}</span>
+        <MarkPaid p={p} methods={methods} triggerVariant="secondary" />
         {section === "priority" && (
           <button
             type="button"

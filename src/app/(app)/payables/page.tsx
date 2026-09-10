@@ -17,7 +17,8 @@ import { type TableSortOption } from "@/components/TableSort";
 import { SortableList, type SortableRow } from "@/components/SortableList";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
-import { addToArrangement, approveInvoice, cancelPayable, markPayablePaid, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
+import { MarkPaid } from "./MarkPaid";
+import { addToArrangement, approveInvoice, cancelPayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
   const { profile } = await requireRole("finance", "management");
@@ -131,7 +132,7 @@ export default async function PayablesPage() {
 
       {isFinance && (
         <div className="mb-6">
-          <ArrangementBoard items={arrangementItems} notes={arrangementNotes} dateLabel={nextSendDateLabel()} />
+          <ArrangementBoard items={arrangementItems} notes={arrangementNotes} dateLabel={nextSendDateLabel()} methods={methods} />
         </div>
       )}
 
@@ -380,47 +381,3 @@ function PayableAddForVendor({
   );
 }
 
-function MarkPaid({ p, methods }: { p: Payable; methods: PaymentMethod[] }) {
-  const remaining = owedAmount(p);
-  const partial = p.status === "partially_paid";
-  return (
-    <FormDrawer
-      triggerLabel={partial ? "Record Payment" : "Mark Paid"}
-      title="Record Payment"
-      description={`${p.payee} — ${formatMYR(remaining)} remaining${partial ? ` of ${formatMYR(p.amount)}` : ""}`}
-      action={markPayablePaid}
-      submitLabel="Save Payment"
-    >
-      <input type="hidden" name="id" value={p.id} />
-      <Field label="Amount Paid Now" required hint="Enter the actual amount paid — it can differ from the estimate (e.g. USD rate or usage-based bills).">
-        <MoneyInput name="paid_amount" defaultValue={remaining} required />
-      </Field>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="settle_full" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
-        <span>
-          This fully settles the bill
-          <span className="block text-xs text-muted">
-            Marks it Paid and updates the amount to what you actually paid. Untick only for a genuine partial payment.
-          </span>
-        </span>
-      </label>
-      <Field label="Paid Date" required><DateWithToday name="paid_date" defaultValue={todayISO()} required /></Field>
-      <Field label="Payment Method">
-        <ComboSelect name="payment_method_id" defaultValue={p.payment_method_id ?? ""}>
-          <option value="">—</option>
-          {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </ComboSelect>
-      </Field>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="deduct_bank" value="1" defaultChecked className="mt-0.5 h-4 w-4 rounded border-border" />
-        <span>
-          Deduct from CIMB balance
-          <span className="block text-xs text-muted">
-            Applies only to <strong>CIMB Bank Transfer</strong> payments. Untick if you&apos;ve already updated the CIMB balance from the bank statement, so it isn&apos;t subtracted twice.
-          </span>
-        </span>
-      </label>
-      <Field label="Reference"><Input name="reference" /></Field>
-    </FormDrawer>
-  );
-}
