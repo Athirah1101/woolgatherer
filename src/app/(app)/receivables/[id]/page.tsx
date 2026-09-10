@@ -138,7 +138,10 @@ export default async function ReceivableDetailPage({
                     const row = schedules.find((x) => x.id === s.id)!;
                     return (
                       <TR key={s.id}>
-                        <TD>{formatDate(s.due_date)}</TD>
+                        <TD>
+                          {formatDate(s.due_date)}
+                          {s.notes && <div className="text-xs text-muted">{s.notes}</div>}
+                        </TD>
                         <TD right>{formatMYR(s.expected)}</TD>
                         <TD right className="text-emerald-700">{formatMYR(s.allocated)}</TD>
                         <TD right className="font-medium">{formatMYR(s.outstanding)}</TD>
