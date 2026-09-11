@@ -134,3 +134,55 @@ export async function buildPaymentArrangementMessage(
 
   return lines.join("\n");
 }
+
+/** "2026-09-11" -> "11/9/2026" */
+function dmy(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d}/${m}/${y}`;
+}
+
+/**
+ * Compose the "Payments Made" recap for a given day: every payable whose
+ * paid_date is that day, with amount + method and a running total. Returns null
+ * when nothing was paid that day (so the cron can skip an empty message).
+ */
+export async function buildPaymentsMadeMessage(
+  client: SupabaseClient,
+  dateISO: string,
+): Promise<string | null> {
+  const [{ data: pays }, { data: methods }] = await Promise.all([
+    client
+      .from("payables")
+      .select("payee, description, paid_amount, amount, status, payment_method_id")
+      .eq("paid_date", dateISO)
+      .in("status", ["paid", "partially_paid"]),
+    client.from("payment_methods").select("id, name"),
+  ]);
+
+  const rows = (pays ?? []) as Payable[];
+  if (rows.length === 0) return null;
+
+  const methodName = new Map(
+    ((methods ?? []) as { id: string; name: string }[]).map((m) => [m.id, m.name]),
+  );
+
+  let total = 0;
+  const lines = rows.map((p, i) => {
+    const amt = Number(p.paid_amount ?? 0) || Number(p.amount ?? 0);
+    total += amt;
+    const name = p.description?.trim() || p.payee;
+    const method = p.payment_method_id ? methodName.get(p.payment_method_id) : null;
+    const partial = p.status === "partially_paid" ? " (partial)" : "";
+    return `${i + 1}. ${name} - ${rm(amt)}${method ? ` · ${method}` : ""}${partial}`;
+  });
+
+  return [
+    `✅ *Payments Made — ${dmy(dateISO)}*`,
+    "",
+    ...lines,
+    "",
+    `*Total Paid ≈ ${rm(total)}*`,
+    "",
+    "_FinanceOS_",
+  ].join("\n");
+}

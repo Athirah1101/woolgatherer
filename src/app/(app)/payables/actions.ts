@@ -12,7 +12,7 @@ import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
-import { buildPaymentArrangementMessage } from "@/lib/integrations/larkPayments";
+import { buildPaymentArrangementMessage, buildPaymentsMadeMessage } from "@/lib/integrations/larkPayments";
 
 async function financeGuard() {
   const session = await getSession();
@@ -301,6 +301,24 @@ export async function postPaymentsToLarkNow(_: ActionState, _fd: FormData): Prom
     if (!text) return { error: "Nothing on the board yet — tick some payables into the list first." };
     const sent = await sendLark(text);
     if (!sent) return { error: "Lark rejected the message. Check the webhook URL and the 'FinanceOS' keyword." };
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** Manually post today's "Payments Made" recap to Lark (finance only). */
+export async function postPaymentsMadeToLarkNow(_: ActionState, _fd: FormData): Promise<ActionState> {
+  try {
+    await financeGuard();
+    if (!larkConfigured()) {
+      return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
+    }
+    const supabase = await createClient();
+    const text = await buildPaymentsMadeMessage(supabase, todayISO());
+    if (!text) return { error: "Nothing marked paid today yet." };
+    const sent = await sendLark(text);
+    if (!sent) return { error: "Lark rejected the message. Check the webhook URL and keyword." };
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };

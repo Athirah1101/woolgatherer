@@ -18,6 +18,7 @@ import { SortableList, type SortableRow } from "@/components/SortableList";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { MarkPaid } from "./MarkPaid";
+import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { addToArrangement, approveInvoice, cancelPayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
@@ -99,7 +100,12 @@ export default async function PayablesPage() {
       <PageHeader
         title="Payables"
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
-        actions={isFinance ? <PayableForm cats={cats} methods={methods} /> : undefined}
+        actions={isFinance ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <PostPaymentsMadeButton />
+            <PayableForm cats={cats} methods={methods} />
+          </div>
+        ) : undefined}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
