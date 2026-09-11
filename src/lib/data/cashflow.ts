@@ -94,6 +94,9 @@ export async function buildMovements(): Promise<CashMovement[]> {
   // --- Payables
   const { data: payables } = await supabase.from("payables").select("*");
   for (const p of (payables ?? []) as Payable[]) {
+    // Refund-mirror payables are already represented by the HRDC refund outflow
+    // above — skip them here so a refund isn't counted twice in the forecast.
+    if (p.source === "refund") continue;
     if (p.status === "unpaid") {
       movements.push({
         date: p.due_date, direction: "out", actual: false, amount: p.amount,

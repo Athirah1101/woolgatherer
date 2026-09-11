@@ -99,7 +99,7 @@ export async function buildPaymentArrangementMessage(
   // Total Owings (Excluding Directors') = every still-owed payable that ISN'T a
   // director payback (is_payback). Board or not.
   const owingsExclDirectors = payables
-    .filter((p) => owing(p) && !p.is_payback)
+    .filter((p) => owing(p) && !p.is_payback && p.source !== "refund")
     .reduce((sum, p) => sum + owedAmount(p), 0);
 
   const line = (p: Payable, i: number) => {

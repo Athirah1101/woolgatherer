@@ -55,7 +55,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   };
 
   // Payables (unpaid + partially paid; amounts are what's still owed)
-  const unpaid = payRows.filter((r) => r.payable.status === "unpaid" || r.payable.status === "partially_paid");
+  // Exclude refund-mirror payables — refunds get their own dashboard cards, so
+  // counting them here as payables too would double-count them.
+  const unpaid = payRows.filter(
+    (r) => (r.payable.status === "unpaid" || r.payable.status === "partially_paid") && r.payable.source !== "refund",
+  );
   const pay = {
     overdue: sumMoney(unpaid.filter((r) => r.attention.level === "overdue").map((r) => owedAmount(r.payable))),
     dueToday: sumMoney(unpaid.filter((r) => r.attention.level === "due_today").map((r) => owedAmount(r.payable))),

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
+import { todayISO } from "@/lib/finance/dates";
 import type { ActionState } from "@/components/form";
 
 async function financeGuard() {
@@ -46,12 +47,36 @@ export async function saveRefundCase(_: ActionState, fd: FormData): Promise<Acti
       refund_amount_due: refund_due,
       stage: received ? "client_refund_due" : "client_payment_received",
     };
-    const res = id
-      ? await supabase.from("hrdc_claims").update(payload).eq("id", id)
-      : await supabase.from("hrdc_claims").insert(payload);
-    if (res.error) return { error: res.error.message };
+    let claimId: string | null = id || null;
+    if (id) {
+      const { error } = await supabase.from("hrdc_claims").update(payload).eq("id", id);
+      if (error) return { error: error.message };
+    } else {
+      const { data: created, error } = await supabase
+        .from("hrdc_claims").insert(payload).select("id").single();
+      if (error || !created) return { error: error?.message ?? "Could not create refund case" };
+      claimId = created.id;
+
+      // Mirror the new refund into Payables so it shows up as money to pay out.
+      // Tagged source="refund" so the cashflow, dashboard and Lark totals — which
+      // already count HRDC refunds — don't double-count it. Due = 30 days after
+      // HRDC funds arrive (the refund clock), or today if not received yet.
+      const dueDate = received
+        ? new Date(new Date(received).getTime() + 30 * 86400000).toISOString().slice(0, 10)
+        : todayISO();
+      await supabase.from("payables").insert({
+        payee: client_name,
+        description: `Client refund${payload.refund_type !== "hrdc" ? ` (${payload.refund_type})` : " (HRDC)"}`,
+        amount: refund_due ?? 0,
+        due_date: dueDate,
+        status: "unpaid",
+        source: "refund",
+        invoice_ref: claimId,
+      });
+      revalidatePath("/payables");
+    }
     await logActivity(supabase, {
-      entity_type: "hrdc_claim", entity_id: id || null, action: id ? "updated" : "created",
+      entity_type: "hrdc_claim", entity_id: claimId, action: id ? "updated" : "created",
       actor: session.userId, summary: `${client_name} refund case`,
     });
     refresh();
