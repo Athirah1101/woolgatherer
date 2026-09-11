@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { todayISO } from "@/lib/finance/dates";
 import { formatMYR } from "@/lib/finance/money";
+import { syncRefundPayable } from "@/lib/data/refundPayable";
 
 async function financeGuard() {
   const session = await getSession();
@@ -156,11 +157,14 @@ export async function recordRefund(_: ActionState, fd: FormData): Promise<Action
       created_by: session.userId,
     });
     if (error) return { error: error.message };
+    // Keep the mirror payable in step: mark it (partially) paid to match.
+    await syncRefundPayable(supabase, claim_id);
     await logActivity(supabase, {
       entity_type: "hrdc_claim", entity_id: claim_id, action: "refund_recorded",
       actor: session.userId, summary: `Refunded ${formatMYR(amount)} to client`,
     });
     refresh(claim_id);
+    revalidatePath("/payables");
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };

@@ -99,7 +99,7 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     // phantom remaining. Unticked = a genuine partial payment.
     const settleFull = Boolean(fd.get("settle_full"));
     const { data: cur } = await supabase
-      .from("payables").select("amount, paid_amount").eq("id", id).single();
+      .from("payables").select("amount, paid_amount, source, invoice_ref").eq("id", id).single();
     const totalPaid = round2(Number(cur?.paid_amount ?? 0) + amountNow);
     const fullyPaid = settleFull || toSen(totalPaid) >= toSen(Number(cur?.amount ?? 0));
     // Correct the bill amount to the actual total paid when settling in full.
@@ -132,6 +132,21 @@ export async function markPayablePaid(_: ActionState, fd: FormData): Promise<Act
     // CIMB balance from the bank statement, so it must not be subtracted twice).
     const deductBank = fd.get("deduct_bank") !== null;
     if (deductBank) await maybeDeductFromBank(supabase, session.userId, method_id, amountNow);
+
+    // If this is a refund-mirror payable, log the same amount as a client refund
+    // on the HRDC side so the Refunds module stays in step.
+    if (cur?.source === "refund" && cur.invoice_ref) {
+      await supabase.from("hrdc_refunds").insert({
+        claim_id: cur.invoice_ref,
+        amount: amountNow,
+        refund_date: s(fd, "paid_date") || todayISO(),
+        payment_method_id: method_id,
+        reference: s(fd, "reference") || null,
+        created_by: session.userId,
+      });
+      revalidatePath("/refunds");
+      revalidatePath("/hrdc");
+    }
 
     const remaining = Math.max(0, round2(newAmount - totalPaid));
     const { data: paid } = await supabase.from("payables").select("payee").eq("id", id).single();
