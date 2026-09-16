@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
 import { buildPaymentArrangementMessage } from "@/lib/integrations/larkPayments";
+import { autopostPausedToday } from "@/lib/integrations/larkPause";
 
 // Posts the payment-arrangement list into the Lark group every Wed & Fri at noon
 // MYT (triggered by the GitHub Actions workflow). Protected by CRON_SECRET.
@@ -19,6 +20,10 @@ export async function GET(request: NextRequest) {
 
   if (!larkConfigured()) {
     return NextResponse.json({ ok: false, skipped: "LARK_WEBHOOK_URL not set" });
+  }
+
+  if (await autopostPausedToday()) {
+    return NextResponse.json({ ok: false, skipped: "auto-post paused for today" });
   }
 
   const text = await buildPaymentArrangementMessage(createAdminClient());

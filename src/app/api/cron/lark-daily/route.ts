@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
 import { buildDailyBalanceMessage } from "@/lib/integrations/larkDaily";
+import { autopostPausedToday } from "@/lib/integrations/larkPause";
 
 // Posts the daily cash balance into the Lark group at noon MYT (see vercel.json:
 // "0 4 * * *" = 04:00 UTC). Protected by CRON_SECRET.
@@ -19,6 +20,10 @@ export async function GET(request: NextRequest) {
 
   if (!larkConfigured()) {
     return NextResponse.json({ ok: false, skipped: "LARK_WEBHOOK_URL not set" });
+  }
+
+  if (await autopostPausedToday()) {
+    return NextResponse.json({ ok: false, skipped: "auto-post paused for today" });
   }
 
   const text = await buildDailyBalanceMessage(createAdminClient());
