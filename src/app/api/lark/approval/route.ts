@@ -27,6 +27,15 @@ function decryptEvent(encrypt: string, key: string): unknown {
   return JSON.parse(out.toString("utf8"));
 }
 
+/** Which payables category to file each approval type under. */
+function categoryForApproval(approvalName: string): string | null {
+  const n = approvalName.toLowerCase();
+  if (n.includes("petty cash")) return "Petty Cash";
+  if (n.includes("payment voucher")) return "Vendors";
+  if (n.includes("refund")) return "Refund to clients";
+  return null; // leave uncategorised if it's some other approval
+}
+
 /** Best-effort: pull payee / amount / purpose out of the form widgets. */
 function mapRequest(form: unknown): { payee: string | null; amount: number | null; purpose: string | null } {
   const widgets = Array.isArray(form) ? form : [];
@@ -101,6 +110,15 @@ export async function POST(request: NextRequest) {
   const { payee, amount, purpose } = mapRequest(form);
   const kind = inst.approval_name || "Lark approval";
 
+  // Auto-tag the payable with the right category based on which approval it is.
+  const catName = categoryForApproval(kind);
+  let categoryId: string | null = null;
+  if (catName) {
+    const { data: cat } = await supabase
+      .from("categories").select("id").eq("kind", "payable").ilike("name", catName).limit(1).maybeSingle();
+    categoryId = cat?.id ?? null;
+  }
+
   await supabase.from("payables").insert({
     payee: payee || kind,
     description: [kind, purpose].filter(Boolean).join(" — "),
@@ -108,6 +126,7 @@ export async function POST(request: NextRequest) {
     due_date: todayISO(),
     status: "unpaid",
     needs_review: false,
+    category_id: categoryId,
     source: "lark_voucher",
     invoice_ref: instanceCode,
     reference: inst.serial_number ?? null,
