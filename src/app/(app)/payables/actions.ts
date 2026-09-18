@@ -173,22 +173,42 @@ async function maybeCreatePayback(
   if (!method || method.name?.toLowerCase() !== PAYBACK_METHOD.toLowerCase()) return;
 
   const { data: original } = await supabase
-    .from("payables").select("payee").eq("id", payableId).single();
+    .from("payables").select("payee, is_payback").eq("id", payableId).single();
   // Don't create a payback for a payback (avoid a loop).
-  if (original?.payee?.toLowerCase() === PAYBACK_METHOD.toLowerCase()) return;
+  if (!original || original.is_payback || original.payee?.toLowerCase() === PAYBACK_METHOD.toLowerCase()) return;
 
-  await supabase.from("payables").insert({
-    payee: PAYBACK_METHOD,
-    description: `Payback — paid ${original?.payee ?? "an expense"} via ${PAYBACK_METHOD}`,
-    amount,
-    due_date: todayISO(),
-    status: "unpaid",
-    is_payback: true,
-    source_payable_id: payableId,
-  });
+  // One running Joseph Chua "tab": add this bill to the single open payback if
+  // there is one (accumulate the amount + append a breakdown line), otherwise
+  // start a fresh one. When the tab is marked paid, the next bill starts a new one.
+  const line = `• ${original.payee ?? "an expense"} — ${formatMYR(amount)} (${formatDate(todayISO())})`;
+  const { data: open } = await supabase
+    .from("payables")
+    .select("id, amount, notes")
+    .eq("payee", PAYBACK_METHOD).eq("is_payback", true)
+    .in("status", ["unpaid", "partially_paid"])
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (open) {
+    await supabase.from("payables").update({
+      amount: round2(Number(open.amount) + amount),
+      notes: [open.notes, line].filter(Boolean).join("\n"),
+    }).eq("id", open.id);
+  } else {
+    await supabase.from("payables").insert({
+      payee: PAYBACK_METHOD,
+      description: `Payback — bills paid via ${PAYBACK_METHOD}`,
+      amount,
+      due_date: todayISO(),
+      status: "unpaid",
+      is_payback: true,
+      notes: line,
+    });
+  }
   await logActivity(supabase, {
-    entity_type: "payable", entity_id: null, action: "payback_created",
-    actor: userId, summary: `Owe ${PAYBACK_METHOD} ${formatMYR(amount)}`,
+    entity_type: "payable", entity_id: null, action: "payback_added",
+    actor: userId, summary: `Owe ${PAYBACK_METHOD} +${formatMYR(amount)} (${original.payee ?? "expense"})`,
   });
 }
 
