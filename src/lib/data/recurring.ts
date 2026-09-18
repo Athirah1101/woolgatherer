@@ -5,9 +5,9 @@ import { startOfMonth, endOfMonth, todayISO } from "@/lib/finance/dates";
 
 /**
  * Ensure the current month's payables exist for every active recurring rule.
- * Idempotent — a partial unique index on (recurring_rule_id, period_key) plus
- * `on conflict do nothing` means it's safe to call on every Payables page load.
- * Returns how many new payables were created.
+ * Idempotent — skips period keys that already exist, and a partial unique index
+ * on (recurring_rule_id, period_key) backstops against races. Safe to call on
+ * every Payables page load. Returns how many new payables were created.
  */
 export async function ensureRecurringForCurrentMonth(supabase: SupabaseClient): Promise<number> {
   const today = todayISO();
@@ -16,10 +16,22 @@ export async function ensureRecurringForCurrentMonth(supabase: SupabaseClient): 
 
   const { data: rules } = await supabase.from("recurring_payables").select("*").eq("active", true);
 
-  const toInsert: Record<string, unknown>[] = [];
+  let created = 0;
   for (const rule of (rules ?? []) as RecurringPayable[]) {
-    for (const d of dueDatesForRule(rule, from, through)) {
-      toInsert.push({
+    const dues = dueDatesForRule(rule, from, through);
+    if (!dues.length) continue;
+
+    const periodKeys = dues.map((d) => d.period_key);
+    const { data: existing } = await supabase
+      .from("payables")
+      .select("period_key")
+      .eq("recurring_rule_id", rule.id)
+      .in("period_key", periodKeys);
+    const have = new Set((existing ?? []).map((e) => e.period_key));
+
+    const toInsert = dues
+      .filter((d) => !have.has(d.period_key))
+      .map((d) => ({
         payee: rule.payee ?? rule.name,
         category_id: rule.category_id,
         description: rule.name,
@@ -29,16 +41,11 @@ export async function ensureRecurringForCurrentMonth(supabase: SupabaseClient): 
         status: "unpaid",
         recurring_rule_id: rule.id,
         period_key: d.period_key,
-      });
+      }));
+    if (toInsert.length) {
+      const { error } = await supabase.from("payables").insert(toInsert);
+      if (!error) created += toInsert.length;
     }
   }
-  if (toInsert.length === 0) return 0;
-
-  // Rows that already exist are skipped by the unique index.
-  const { data, error } = await supabase
-    .from("payables")
-    .upsert(toInsert, { onConflict: "recurring_rule_id,period_key", ignoreDuplicates: true })
-    .select("id");
-  if (error) return 0;
-  return data?.length ?? 0;
+  return created;
 }
