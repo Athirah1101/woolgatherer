@@ -19,12 +19,16 @@ import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { MarkPaid } from "./MarkPaid";
 import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
+import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { addToArrangement, approveInvoice, cancelPayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
   const { profile } = await requireRole("finance", "management");
   const isFinance = profile.role === "finance";
   const supabase = await createClient();
+  // Make sure this month's recurring bills exist before we read the list, so a
+  // rule that's due this month shows up without anyone pressing "Generate".
+  await ensureRecurringForCurrentMonth(supabase);
   const [allRows, cats, methods, notesRow] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
