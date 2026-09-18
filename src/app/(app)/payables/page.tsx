@@ -47,11 +47,16 @@ export default async function PayablesPage() {
     r.payable.status === "unpaid" || r.payable.status === "partially_paid";
   const today = todayISO();
   const unpaid = rows.filter(owing);
-  // Payment-arrangement board: ticked + still-owed payables, in the manual order.
+  // Payment-arrangement board: ticked + still-owed payables, earliest due date
+  // first (undated sink to the bottom); the manual drag order breaks ties.
   const arrangementItems = rows
     .filter((r) => r.payable.arrangement && owing(r))
     .map((r) => r.payable)
-    .sort((a, b) => (a.arrangement_order ?? 1e9) - (b.arrangement_order ?? 1e9));
+    .sort(
+      (a, b) =>
+        (a.due_date ?? "9999-12-31").localeCompare(b.due_date ?? "9999-12-31") ||
+        (a.arrangement_order ?? 1e9) - (b.arrangement_order ?? 1e9),
+    );
   // Aged payables: each still-owed bill bucketed by how overdue it is.
   const agingPayables = buildAging(
     unpaid.map((r) => ({

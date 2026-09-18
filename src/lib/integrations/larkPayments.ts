@@ -63,10 +63,12 @@ export async function buildPaymentArrangementMessage(
   const notes = ((notesRow?.value as string | undefined) ?? "").trim();
 
   const payables = (pay ?? []) as Payable[];
-  // On the board, still owed, sorted by the manual order.
+  // On the board, still owed, sorted by earliest due date first (undated items
+  // sink to the bottom); the manual order breaks ties.
+  const dueKey = (p: Payable) => (p.due_date ? p.due_date : "9999-12-31");
   const board = payables
     .filter((p) => p.arrangement && owing(p))
-    .sort((a, b) => orderKey(a) - orderKey(b));
+    .sort((a, b) => dueKey(a).localeCompare(dueKey(b)) || orderKey(a) - orderKey(b));
   if (board.length === 0) return null;
 
   // Priority = will-pay-now: not on hold, not KIV. On-hold items stay on the
@@ -107,7 +109,8 @@ export async function buildPaymentArrangementMessage(
     // Prefer the description (e.g. "Ray & Edison EPF") over the bare payee ("EPF")
     // so the boss message names exactly which bill it is. Falls back to payee.
     const name = p.description?.trim() || p.payee;
-    return `${i + 1}. ${name} - ${rm(owedAmount(p))}${note ? ` (${note})` : ""}`;
+    const due = p.due_date ? ` · due ${dmy(p.due_date)}` : "";
+    return `${i + 1}. ${name} - ${rm(owedAmount(p))}${due}${note ? ` (${note})` : ""}`;
   };
 
   // Notes block: the user's saved general notes, verbatim (each line as typed).
