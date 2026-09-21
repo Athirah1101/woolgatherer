@@ -28,6 +28,8 @@ export interface RecvRowView {
   dealStatus: string; // active | on_hold | stopped | completed | cancelled
   hrdc: boolean;
   flexible: boolean;
+  paidThisMonth: boolean;
+  paidThisMonthAmount: number;
   remarks: string | null;
 }
 
@@ -35,6 +37,7 @@ const UPCOMING_HIDDEN_KEY = "financeos.recv.upcomingHidden";
 
 const QUICK = [
   { key: "", label: "All" },
+  { key: "paid_this_month", label: "Paid This Month" },
   { key: "outstanding", label: "Outstanding" },
   { key: "overdue", label: "Overdue" },
   { key: "due_week", label: "Due This Week" },
@@ -98,6 +101,7 @@ export function ReceivablesTable({
     if (hrdc === "yes") r = r.filter((x) => x.hrdc);
     if (hrdc === "no") r = r.filter((x) => !x.hrdc);
     switch (quick) {
+      case "paid_this_month": r = r.filter((x) => x.paidThisMonth); break;
       case "outstanding": r = r.filter((x) => x.outstanding > 0); break;
       case "overdue": r = r.filter((x) => x.overdue > 0); break;
       case "paid": r = r.filter((x) => x.collectionStatus === "paid"); break;
@@ -232,6 +236,9 @@ export function ReceivablesTable({
       <TR key={r.id}>
         <TD className="font-medium">
           <Link href={`/receivables/${r.id}`} className="hover:text-brand hover:underline">{r.client}</Link>
+          {r.paidThisMonth && (
+            <Chip tone="green" className="ml-2">✓ Paid this month</Chip>
+          )}
           {r.flexible && <Chip tone="blue" className="ml-2">Flexible</Chip>}
           {r.hrdc && <Chip tone="indigo" className="ml-2">HRDC</Chip>}
         </TD>

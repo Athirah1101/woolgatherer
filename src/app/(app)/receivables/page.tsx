@@ -24,7 +24,7 @@ export default async function ReceivablesPage({
 
   const scoped = asPic ? allRows.filter((r) => r.receivable.sales_pic === asPic) : allRows;
 
-  const rows: RecvRowView[] = scoped.map(({ receivable: r, summary }) => ({
+  const rows: RecvRowView[] = scoped.map(({ receivable: r, summary, paidThisMonth, paidThisMonthAmount }) => ({
     id: r.id,
     client: r.client_name,
     product: r.product,
@@ -40,6 +40,8 @@ export default async function ReceivablesPage({
     dealStatus: r.status,
     hrdc: r.hrdc_applicable,
     flexible: isFlexiblePlan(r.payment_plan_type),
+    paidThisMonth,
+    paidThisMonthAmount,
     remarks: r.remarks,
   }));
 

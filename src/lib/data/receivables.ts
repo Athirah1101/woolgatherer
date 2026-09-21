@@ -12,6 +12,10 @@ import { todayISO } from "@/lib/finance/dates";
 export interface ReceivableRow {
   receivable: Receivable;
   summary: ReceivableSummary;
+  /** A (non-voided) payment was received in the current calendar month. */
+  paidThisMonth: boolean;
+  /** How much was received this calendar month. */
+  paidThisMonthAmount: number;
 }
 
 export async function getReceivableRows(): Promise<ReceivableRow[]> {
@@ -34,17 +38,24 @@ export async function getReceivableRows(): Promise<ReceivableRow[]> {
     (payByR.get(p.receivable_id) ?? payByR.set(p.receivable_id, []).get(p.receivable_id)!).push(p);
   const allocByPayment = allocations ?? [];
 
+  const monthPrefix = today.slice(0, 7); // "YYYY-MM"
+
   return ((receivables ?? []) as Receivable[]).map((r) => {
     const sched = schedByR.get(r.id) ?? [];
     const pays = payByR.get(r.id) ?? [];
     const payIds = new Set(pays.map((p) => p.id));
     const allocs = (allocByPayment as PaymentAllocation[]).filter((a) => payIds.has(a.payment_id));
+    const thisMonthPays = pays.filter(
+      (p) => !p.voided && (p.received_date ?? "").startsWith(monthPrefix),
+    );
     return {
       receivable: r,
       summary: summarizeReceivable(sched, pays, allocs, today, {
         dealTotal: r.total_receivable,
         flexible: isFlexiblePlan(r.payment_plan_type),
       }),
+      paidThisMonth: thisMonthPays.length > 0,
+      paidThisMonthAmount: thisMonthPays.reduce((sum, p) => sum + Number(p.amount || 0), 0),
     };
   });
 }

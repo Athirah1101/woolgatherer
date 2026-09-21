@@ -147,7 +147,7 @@ export function Sidebar({
       {/* Mobile top bar — sticky so the menu is always reachable while scrolling */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg logo-gradient text-sm font-bold text-white">
             F
           </div>
           <span className="font-semibold">FinanceOS</span>
@@ -175,7 +175,7 @@ export function Sidebar({
             collapsed ? "justify-center px-2" : "gap-2 px-5",
           )}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand font-bold text-white">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg logo-gradient font-bold text-white">
             F
           </div>
           {!collapsed && (
