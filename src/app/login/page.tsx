@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Field, Input } from "@/components/form";
 import { buttonClass } from "@/components/ui";
 
-const DEMO = [
+// Quick-fill just the email address for the shared role logins — never the
+// password (that must never live in source or the client bundle).
+const QUICK_FILL = [
   { label: "Finance", email: "finance@vertexmastery.com" },
   { label: "Sales", email: "sales@vertexmastery.com" },
   { label: "Management", email: "management@vertexmastery.com" },
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,13 +62,24 @@ export default function LoginPage() {
             />
           </Field>
           <Field label="Password" required>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className="pr-16"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-xs font-medium text-muted hover:text-text"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </Field>
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
@@ -77,16 +91,13 @@ export default function LoginPage() {
 
         <div className="mt-6 rounded-xl border border-dashed border-border bg-surface p-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-            Demo accounts (password: financeos123)
+            Quick fill email
           </p>
           <div className="space-y-1">
-            {DEMO.map((d) => (
+            {QUICK_FILL.map((d) => (
               <button
                 key={d.email}
-                onClick={() => {
-                  setEmail(d.email);
-                  setPassword("financeos123");
-                }}
+                onClick={() => setEmail(d.email)}
                 className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm hover:bg-gray-50"
               >
                 <span className="font-medium">{d.label}</span>
