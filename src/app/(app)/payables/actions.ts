@@ -45,6 +45,43 @@ async function notifyNewPayable(payee: string, amount: number, dueDate: string, 
   }
 }
 
+/**
+ * Create a new payable category inline (from the category dropdown) and return
+ * it so the form can select it immediately. Finance-only.
+ */
+export async function createPayableCategory(
+  name: string,
+): Promise<{ id?: string; name?: string; error?: string }> {
+  try {
+    await financeGuard();
+    const clean = name.trim();
+    if (!clean) return { error: "Enter a category name" };
+    const supabase = await createClient();
+    // Reuse an existing payable category with the same name (case-insensitive)
+    // instead of creating a duplicate.
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id, name")
+      .eq("kind", "payable")
+      .ilike("name", clean)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return { id: existing.id, name: existing.name };
+
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({ name: clean, kind: "payable", active: true })
+      .select("id, name")
+      .single();
+    if (error) return { error: error.message };
+    revalidatePath("/settings/categories");
+    revalidatePath("/payables");
+    return { id: data.id, name: data.name };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function savePayable(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const session = await financeGuard();

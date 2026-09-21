@@ -19,6 +19,7 @@ import { AgingChart, buildAging } from "@/components/AgingChart";
 import { ArrangementBoard } from "./ArrangementBoard";
 import { MarkPaid } from "./MarkPaid";
 import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
+import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { addToArrangement, approveInvoice, cancelPayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
@@ -361,10 +362,7 @@ function PayableForm({
         <Input name="payee" defaultValue={payee} list="payable-vendors" required />
       </Field>
       <Field label="Category">
-        <ComboSelect name="category_id" defaultValue={categoryId}>
-          <option value="">—</option>
-          {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </ComboSelect>
+        <CategorySelect defaultValue={categoryId} cats={cats.map((c) => ({ id: c.id, name: c.name }))} />
       </Field>
       <Field label="Description"><Input name="description" defaultValue={p?.description ?? ""} /></Field>
       <div className="grid grid-cols-2 gap-3">
