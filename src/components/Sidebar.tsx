@@ -144,8 +144,8 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
+      {/* Mobile top bar — sticky so the menu is always reachable while scrolling */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
             F
