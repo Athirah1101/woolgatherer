@@ -35,6 +35,7 @@ function sched(due: string, amount: number, order = 0): PaymentSchedule {
     expected_amount: amount,
     sort_order: order,
     notes: null,
+    paid_date: null,
   };
 }
 

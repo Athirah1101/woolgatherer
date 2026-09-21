@@ -62,6 +62,8 @@ export interface PaymentSchedule {
   expected_amount: number;
   sort_order: number;
   notes: string | null;
+  /** Manually-entered date this instalment was paid (overrides the derived date). */
+  paid_date: string | null;
 }
 
 export interface ReceivablePayment {

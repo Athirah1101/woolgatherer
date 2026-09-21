@@ -190,7 +190,13 @@ export async function saveScheduleRow(_: ActionState, fd: FormData): Promise<Act
     const due_date = s(fd, "due_date");
     const expected_amount = n(fd, "expected_amount");
     if (!due_date || expected_amount <= 0) return { error: "Enter a due date and amount" };
-    const payload = { receivable_id, due_date, expected_amount, notes: s(fd, "notes") || null };
+    const payload = {
+      receivable_id,
+      due_date,
+      expected_amount,
+      notes: s(fd, "notes") || null,
+      paid_date: s(fd, "paid_date") || null,
+    };
     const res = id
       ? await supabase.from("payment_schedules").update(payload).eq("id", id)
       : await supabase.from("payment_schedules").insert(payload);

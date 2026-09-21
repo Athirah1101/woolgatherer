@@ -44,6 +44,20 @@ export default async function ReceivableDetailPage({
   for (const a of allocations)
     allocByPayment.set(a.payment_id, (allocByPayment.get(a.payment_id) ?? 0) + a.amount);
 
+  // Derived "paid date" per instalment: the latest received-date among the
+  // (non-voided) payments allocated to that month — i.e. when it became covered.
+  // Used as a fallback when no paid date has been entered by hand.
+  const paymentDate = new Map<string, string>();
+  for (const p of payments) if (!p.voided) paymentDate.set(p.id, p.received_date);
+  const derivedPaidDate = new Map<string, string>();
+  for (const a of allocations) {
+    if (!a.schedule_id) continue;
+    const d = paymentDate.get(a.payment_id);
+    if (!d) continue;
+    const cur = derivedPaidDate.get(a.schedule_id);
+    if (!cur || d > cur) derivedPaidDate.set(a.schedule_id, d);
+  }
+
   return (
     <div>
       <div className="mb-2">
@@ -136,11 +150,18 @@ export default async function ReceivableDetailPage({
                   {summary.schedules.map((s) => {
                     const chip = scheduleStatusChip(s.status);
                     const row = schedules.find((x) => x.id === s.id)!;
+                    // Manual paid date wins; otherwise fall back to the date derived
+                    // from recorded payments once the month is fully covered.
+                    const paidDate =
+                      row.paid_date ?? (s.outstanding <= 0 ? derivedPaidDate.get(s.id) ?? null : null);
                     return (
                       <TR key={s.id}>
                         <TD>
                           {formatDate(s.due_date)}
                           {s.notes && <div className="text-xs text-muted">{s.notes}</div>}
+                          {paidDate && (
+                            <div className="text-xs text-emerald-700">Paid {formatDate(paidDate)}</div>
+                          )}
                         </TD>
                         <TD right>{formatMYR(s.expected)}</TD>
                         <TD right className="text-emerald-700">{formatMYR(s.allocated)}</TD>
@@ -152,7 +173,7 @@ export default async function ReceivableDetailPage({
                               {s.outstanding > 0 && (
                                 <RowRecordPayment receivableId={r.id} methods={methods} schedule={s} />
                               )}
-                              <ScheduleRow receivableId={r.id} row={row} />
+                              <ScheduleRow receivableId={r.id} row={row} derivedPaidDate={derivedPaidDate.get(s.id) ?? null} />
                               {s.allocated === 0 && (
                                 <form action={deleteScheduleRow}>
                                   <input type="hidden" name="id" value={s.id} />
@@ -359,10 +380,11 @@ function RowRecordPayment({
 }
 
 function ScheduleRow({
-  receivableId, row,
+  receivableId, row, derivedPaidDate,
 }: {
   receivableId: string;
-  row?: { id: string; due_date: string; expected_amount: number; notes: string | null };
+  row?: { id: string; due_date: string; expected_amount: number; notes: string | null; paid_date: string | null };
+  derivedPaidDate?: string | null;
 }) {
   return (
     <FormDrawer
@@ -379,6 +401,16 @@ function ScheduleRow({
       </Field>
       <Field label="Expected Amount" required>
         <MoneyInput name="expected_amount" defaultValue={row?.expected_amount} required />
+      </Field>
+      <Field
+        label="Paid Date"
+        hint={
+          derivedPaidDate
+            ? `Leave blank to use the date from recorded payments (${formatDate(derivedPaidDate)}).`
+            : "When this month was actually paid. Leave blank if not paid yet."
+        }
+      >
+        <DateWithToday name="paid_date" defaultValue={row?.paid_date ?? ""} />
       </Field>
       <Field label="Notes">
         <Input name="notes" defaultValue={row?.notes ?? ""} />
