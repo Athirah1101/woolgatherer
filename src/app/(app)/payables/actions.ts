@@ -409,6 +409,40 @@ export async function cancelPayable(fd: FormData): Promise<void> {
 }
 
 /**
+ * Flag a payable as "Possibly Stopped" — it looks discontinued (e.g. a
+ * subscription no one is paying for) and needs verifying before it's cancelled
+ * or resumed. It drops out of the "owing" totals and the pay list while flagged,
+ * but stays visible in its own tab for someone to confirm.
+ */
+export async function markPayablePossiblyStopped(fd: FormData): Promise<void> {
+  const session = await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("payables").update({ status: "possibly_stopped" }).eq("id", id);
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: id, action: "flagged_possibly_stopped",
+    actor: session.userId, summary: "Flagged as possibly stopped (needs verifying)",
+  });
+  refresh();
+}
+
+/** Move a payable back to Unpaid — used to un-flag a "Possibly Stopped" bill
+ *  that turns out to still be active. */
+export async function reactivatePayable(fd: FormData): Promise<void> {
+  const session = await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  await supabase.from("payables").update({ status: "unpaid" }).eq("id", id);
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: id, action: "reactivated",
+    actor: session.userId, summary: "Confirmed still active — back to unpaid",
+  });
+  refresh();
+}
+
+/**
  * Close a partially-paid payable in full at the amount already paid — the fix
  * for a payment recorded without ticking "fully settles". Sets the bill amount
  * to what's actually been paid so no phantom remaining is left.

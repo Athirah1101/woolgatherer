@@ -109,7 +109,7 @@ export interface Payable {
   amount: number;
   due_date: string;
   payment_method_id: string | null;
-  status: "unpaid" | "partially_paid" | "paid" | "cancelled";
+  status: "unpaid" | "partially_paid" | "paid" | "cancelled" | "possibly_stopped";
   paid_date: string | null;
   paid_amount: number | null;
   reference: string | null;
