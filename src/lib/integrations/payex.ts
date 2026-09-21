@@ -260,21 +260,38 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
   // window (txn_date >= anchor). Payex settles with a 1–2 day lag, so payouts
   // for sales made before the anchor must be ignored — otherwise we'd subtract
   // money we never counted as collected and the balance would go negative.
+  //
+  // Settlement lag: a settlement leaves the Payex pool on its payout date, but
+  // the cash takes ~1–2 days to ARRIVE in CIMB. We only subtract it once it has
+  // arrived (payout date + lag has passed). Before then it's travelling and
+  // stays counted under Payex — otherwise the money is invisible, counted by
+  // neither Payex nor the bank. This mirrors the Stripe in-transit handling.
+  // Tune with PAYEX_SETTLE_LAG_DAYS (default 2 calendar days).
+  const rawLag = process.env.PAYEX_SETTLE_LAG_DAYS;
+  const settleLagDays =
+    rawLag != null && rawLag.trim() !== "" ? Math.max(0, Math.round(Number(rawLag)) || 0) : 2;
   let settled = 0;
   let settledCount = 0;
+  let travellingCount = 0;
+  let travellingSum = 0;
   for (const s of settlements) {
     const cur = (s.currency ?? s.base_currency ?? MYR).toUpperCase();
     if (cur !== MYR) continue;
     const txnDay = dayKey(s.txn_date);
     if (txnDay && txnDay < start) continue; // pre-anchor sale — not ours to subtract
-    // A settlement whose payout date is in the FUTURE is only queued, not yet
-    // disbursed — keep that money showing in Payex until the payout day arrives.
-    // Once the payout date is today or earlier, Payex has paid it out to CIMB,
-    // so we subtract it (otherwise the same money is counted in both Payex and
-    // the CIMB balance for a day).
+    const gross = toNum(s.gross_amount ?? s.base_amount);
+    // Keep a settlement counted in Payex until its money should have landed in
+    // CIMB (payout date + lag). A settlement with no date is treated as arrived.
     const settleDay = dayKey(s.date);
-    if (settleDay && settleDay > end) continue;
-    settled += toNum(s.gross_amount ?? s.base_amount);
+    if (settleDay) {
+      const arrivalCompact = compact(addDays(toISO(settleDay), settleLagDays));
+      if (arrivalCompact > end) {
+        travellingCount++;
+        travellingSum += gross;
+        continue; // still travelling to CIMB — leave it showing in Payex
+      }
+    }
+    settled += gross;
     settledCount++;
   }
 
@@ -289,7 +306,10 @@ export async function syncPayexBalance(): Promise<PayexSyncResult> {
     .join(" ");
   const base = anchorBalance ? `anchor ${round2(anchorBalance)} + ` : "";
   const failedNote = failedList.length ? ` · ⚠ not collected: ${failedList.join("; ")}` : "";
-  const detail = `${base}${collectedCount} collected − ${settledCount} settlements (since ${start}) · statuses ${breakdown}${failedNote}`;
+  const travellingNote = travellingCount
+    ? ` · ${travellingCount} settlement(s) travelling to CIMB (${formatMYR(round2(travellingSum))}) still counted`
+    : "";
+  const detail = `${base}${collectedCount} collected − ${settledCount} settlements (since ${start}) · statuses ${breakdown}${travellingNote}${failedNote}`;
 
   return { balance, collected: round2(collected), settled: round2(settled), asOf, detail };
 }
