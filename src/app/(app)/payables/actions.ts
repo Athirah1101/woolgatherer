@@ -53,25 +53,30 @@ export async function savePayable(_: ActionState, fd: FormData): Promise<ActionS
     const payee = s(fd, "payee");
     const due_date = s(fd, "due_date");
     if (!payee || !due_date) return { error: "Payee and due date are required" };
-    const payload = {
+    const amount = n(fd, "amount");
+    const payload: Record<string, unknown> = {
       payee,
       category_id: s(fd, "category_id") || null,
       description: s(fd, "description") || null,
-      amount: n(fd, "amount"),
+      amount,
       due_date,
       payment_method_id: s(fd, "payment_method_id") || null,
       notes: s(fd, "notes") || null,
     };
+    // When editing an already-paid payable, the form also carries the recorded
+    // payment details so they can be corrected. Only apply them if present.
+    if (id && fd.has("paid_date")) payload.paid_date = s(fd, "paid_date") || null;
+    if (id && fd.has("paid_amount")) payload.paid_amount = n(fd, "paid_amount");
     const res = id
       ? await supabase.from("payables").update(payload).eq("id", id)
       : await supabase.from("payables").insert(payload);
     if (res.error) return { error: res.error.message };
     await logActivity(supabase, {
       entity_type: "payable", entity_id: id || null, action: id ? "updated" : "created",
-      actor: session.userId, summary: `${payee} — ${formatMYR(payload.amount)}`,
+      actor: session.userId, summary: `${payee} — ${formatMYR(amount)}`,
     });
     // Alert the Lark group when a brand-new payable is added (not on edits).
-    if (!id) await notifyNewPayable(payee, payload.amount, due_date);
+    if (!id) await notifyNewPayable(payee, amount, due_date);
     refresh();
     return { ok: true };
   } catch (e) {

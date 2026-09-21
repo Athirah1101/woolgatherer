@@ -240,12 +240,16 @@ export default async function PayablesPage() {
                                   </InlineSubmit>
                                 </form>
                               )}
-                              <PayableForm cats={cats} methods={methods} p={p} />
-                              <form action={cancelPayable}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <InlineSubmit variant="danger" confirm="Cancel this payable?">Cancel</InlineSubmit>
-                              </form>
                             </>
+                          )}
+                          {/* Edit is available in every state — including Paid — so a
+                              recorded payment can be corrected after the fact. */}
+                          <PayableForm cats={cats} methods={methods} p={p} />
+                          {(p.status === "unpaid" || p.status === "partially_paid") && (
+                            <form action={cancelPayable}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <InlineSubmit variant="danger" confirm="Cancel this payable?">Cancel</InlineSubmit>
+                            </form>
                           )}
                           <PayableAddForVendor cats={cats} methods={methods} p={p} />
                         </div>
@@ -373,6 +377,14 @@ function PayableForm({
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </ComboSelect>
       </Field>
+      {/* Paid details — only when editing a payable that's already paid/partly
+          paid, so the recorded payment (date + amount) can be corrected. */}
+      {p && (p.status === "paid" || p.status === "partially_paid") && (
+        <div className="grid grid-cols-2 gap-3 rounded-md border border-border bg-surface/50 p-3">
+          <Field label="Paid Date"><DateWithToday name="paid_date" defaultValue={p.paid_date ?? todayISO()} /></Field>
+          <Field label="Amount Paid"><MoneyInput name="paid_amount" defaultValue={p.paid_amount ?? p.amount} /></Field>
+        </div>
+      )}
       <Field label="Notes"><Textarea name="notes" defaultValue={p?.notes ?? ""} /></Field>
     </FormDrawer>
   );
