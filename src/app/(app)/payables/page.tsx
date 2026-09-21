@@ -80,7 +80,7 @@ export default async function PayablesPage() {
   // View tabs (To Pay / Paid / All) are filtered in the browser (see
   // SortableList) so switching is instant — no reload, no scroll jump.
   const paidCount = rows.filter((r) => r.payable.status === "paid").length;
-  const stoppedCount = rows.filter((r) => r.payable.status === "possibly_stopped").length;
+  const stoppedCount = rows.filter((r) => r.payable.possibly_stopped && owing(r)).length;
   const VIEWS = [
     { key: "unpaid", label: "To Pay", count: unpaid.length },
     { key: "paid", label: "Paid", count: paidCount },
@@ -184,7 +184,10 @@ export default async function PayablesPage() {
             return {
               key: p.id,
               search: `${p.payee} ${p.description ?? ""} ${categoryName(cats, p.category_id)} ${p.reference ?? ""} ${p.invoice_ref ?? ""}`.toLowerCase(),
-              tags: p.status === "paid" ? ["paid"] : p.status === "possibly_stopped" ? ["stopped"] : owing({ payable: p }) ? ["unpaid"] : [],
+              tags: [
+                ...(p.status === "paid" ? ["paid"] : owing({ payable: p }) ? ["unpaid"] : []),
+                ...(p.possibly_stopped ? ["stopped"] : []),
+              ],
               sortKeys: { due: p.due_date ?? "", amount: p.amount, payee: (p.payee ?? "").toLowerCase(), paiddate: p.paid_date ?? "" },
               node: (
                   <TR>
@@ -206,20 +209,21 @@ export default async function PayablesPage() {
                     <TD className="paid-col whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>
                     <TD className="paid-col text-muted">{methodName(methods, p.payment_method_id)}</TD>
                     <TD>
-                      <StatusChip
-                        label={
-                          p.status === "paid" ? "Paid"
-                          : p.status === "partially_paid" ? "Partially Paid"
-                          : p.status === "possibly_stopped" ? "Possibly Stopped"
-                          : p.status === "cancelled" ? "Cancelled" : "Unpaid"
-                        }
-                        tone={
-                          p.status === "paid" ? "green"
-                          : p.status === "partially_paid" ? "blue"
-                          : p.status === "possibly_stopped" ? "orange"
-                          : p.status === "cancelled" ? "gray" : "amber"
-                        }
-                      />
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusChip
+                          label={
+                            p.status === "paid" ? "Paid"
+                            : p.status === "partially_paid" ? "Partially Paid"
+                            : p.status === "cancelled" ? "Cancelled" : "Unpaid"
+                          }
+                          tone={
+                            p.status === "paid" ? "green"
+                            : p.status === "partially_paid" ? "blue"
+                            : p.status === "cancelled" ? "gray" : "amber"
+                          }
+                        />
+                        {p.possibly_stopped && <StatusChip label="Possibly Stopped" tone="orange" />}
+                      </div>
                     </TD>
                     <TD><AttentionBadge label={chip.label} tone={chip.tone} /></TD>
                     {isFinance && (
@@ -245,31 +249,22 @@ export default async function PayablesPage() {
                                   </InlineSubmit>
                                 </form>
                               )}
-                              <form action={markPayablePossiblyStopped}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <InlineSubmit
-                                  variant="secondary"
-                                  confirm={`Flag "${p.payee}" as possibly stopped? It'll move out of the pay list until someone verifies whether it's still needed.`}
-                                >
-                                  Possibly stopped?
-                                </InlineSubmit>
-                              </form>
-                            </>
-                          )}
-                          {/* Possibly Stopped — needs verifying. Confirm it's gone
-                              (Cancel) or that it's still live (back to Unpaid). */}
-                          {p.status === "possibly_stopped" && (
-                            <>
-                              <form action={reactivatePayable}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <InlineSubmit variant="secondary">Still active</InlineSubmit>
-                              </form>
-                              <form action={cancelPayable}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <InlineSubmit variant="danger" confirm={`Confirm "${p.payee}" has stopped and cancel it?`}>
-                                  Confirm stopped
-                                </InlineSubmit>
-                              </form>
+                              {p.possibly_stopped ? (
+                                <form action={reactivatePayable}>
+                                  <input type="hidden" name="id" value={p.id} />
+                                  <InlineSubmit variant="secondary">Unflag stopped</InlineSubmit>
+                                </form>
+                              ) : (
+                                <form action={markPayablePossiblyStopped}>
+                                  <input type="hidden" name="id" value={p.id} />
+                                  <InlineSubmit
+                                    variant="secondary"
+                                    confirm={`Flag "${p.payee}" as possibly stopped? It stays on the pay list and in the totals — just labelled so someone can verify whether it's still needed.`}
+                                  >
+                                    Possibly stopped?
+                                  </InlineSubmit>
+                                </form>
+                              )}
                             </>
                           )}
                           {/* Edit is available in every state — including Paid — so a

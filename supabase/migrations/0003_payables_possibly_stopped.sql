@@ -1,6 +1,5 @@
--- Add a "possibly_stopped" payable status: a bill that looks discontinued
--- (e.g. an unused subscription) and needs verifying before it's cancelled or
--- resumed. It is excluded from "owing" totals while flagged.
-alter table public.payables drop constraint if exists payables_status_check;
-alter table public.payables add constraint payables_status_check
-  check (status = any (array['unpaid'::text, 'partially_paid'::text, 'paid'::text, 'cancelled'::text, 'possibly_stopped'::text]));
+-- "Possibly Stopped" is a LABEL on top of a payable's normal status, not a
+-- status of its own: a bill that looks discontinued (e.g. an unused
+-- subscription) stays Unpaid — counted in totals and shown on the pay list —
+-- but is flagged so someone can verify whether it's still needed.
+alter table public.payables add column if not exists possibly_stopped boolean not null default false;

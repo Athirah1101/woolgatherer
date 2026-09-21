@@ -109,7 +109,7 @@ export interface Payable {
   amount: number;
   due_date: string;
   payment_method_id: string | null;
-  status: "unpaid" | "partially_paid" | "paid" | "cancelled" | "possibly_stopped";
+  status: "unpaid" | "partially_paid" | "paid" | "cancelled";
   paid_date: string | null;
   paid_amount: number | null;
   reference: string | null;
@@ -118,6 +118,9 @@ export interface Payable {
   period_key: string | null;
   is_payback?: boolean;
   source_payable_id?: string | null;
+  // Flagged as looking discontinued (e.g. an unused subscription) — a label on
+  // top of the normal status; the bill still counts as owed until verified.
+  possibly_stopped?: boolean;
   // Email-invoice ingestion.
   needs_review?: boolean;
   source?: string | null;
