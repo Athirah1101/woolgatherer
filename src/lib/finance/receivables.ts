@@ -79,6 +79,7 @@ export function summarizeReceivable(
   payments: ReceivablePayment[],
   allocations: PaymentAllocation[],
   today: string,
+  opts?: { dealTotal?: number; flexible?: boolean },
 ): ReceivableSummary {
   const livePayments = payments.filter((p) => !p.voided);
   const livePaymentIds = new Set(livePayments.map((p) => p.id));
@@ -113,8 +114,13 @@ export function summarizeReceivable(
   const totalPaid = sumMoney(livePayments.map((p) => p.amount));
   const totalAllocated = sumMoney(liveAllocations.map((a) => a.amount));
   // Outstanding = deal amount − total paid (per Finance's preferred formula).
-  const outstanding = Math.max(0, subMoney(totalExpected, totalPaid));
-  const credit = Math.max(0, subMoney(totalPaid, totalExpected));
+  // For a FLEXIBLE receivable the schedule rows are only a forecast and don't
+  // necessarily sum to the deal, so the balance is measured against the deal
+  // total instead of the schedule sum.
+  const balanceBase =
+    opts?.flexible && opts.dealTotal != null ? opts.dealTotal : totalExpected;
+  const outstanding = Math.max(0, subMoney(balanceBase, totalPaid));
+  const credit = Math.max(0, subMoney(totalPaid, balanceBase));
 
   const overdueViews = views.filter((v) => v.outstanding > 0 && diffDays(v.due_date, today) > 0);
   const overdueAmount = sumMoney(overdueViews.map((v) => v.outstanding));
@@ -123,7 +129,7 @@ export function summarizeReceivable(
   const next = views.find((v) => v.outstanding > 0) ?? null;
 
   let collectionStatus: CollectionStatus;
-  if (totalExpected === 0) collectionStatus = totalPaid > 0 ? "overpaid" : "unpaid";
+  if (balanceBase === 0) collectionStatus = totalPaid > 0 ? "overpaid" : "unpaid";
   else if (outstanding <= 0) collectionStatus = credit > 0 ? "overpaid" : "paid";
   else if (totalPaid > 0) collectionStatus = "partially_paid";
   else collectionStatus = "unpaid";
@@ -231,7 +237,14 @@ export const PAYMENT_PLAN_OPTIONS = [
   { value: "24_instalments", label: "24 Instalments" },
   { value: "36_instalments", label: "36 Instalments" },
   { value: "custom", label: "Custom Schedule" },
+  { value: "flexible", label: "Flexible (deposit / partial — no fixed plan)" },
 ];
+
+/** A "flexible" receivable: deposit/partial payments tracked against a deal
+ *  balance, with expected payments added by hand rather than a fixed schedule. */
+export function isFlexiblePlan(planType: string | null | undefined): boolean {
+  return planType === "flexible";
+}
 
 export function collectionStatusLabel(s: CollectionStatus): string {
   return {

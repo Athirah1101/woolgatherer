@@ -149,6 +149,7 @@ export async function updateReceivable(_: ActionState, fd: FormData): Promise<Ac
         deal_date: s(fd, "deal_date") || null,
         original_amount: n(fd, "original_amount"),
         total_receivable: n(fd, "total_receivable"),
+        payment_plan_type: s(fd, "payment_plan_type") || "custom",
         hrdc_applicable: fd.get("hrdc_applicable") === "on",
         status: s(fd, "status") || "active",
         notes: s(fd, "notes") || null,

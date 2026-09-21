@@ -27,6 +27,7 @@ export interface RecvRowView {
   collectionStatus: CollectionStatus;
   dealStatus: string; // active | on_hold | stopped | completed | cancelled
   hrdc: boolean;
+  flexible: boolean;
   remarks: string | null;
 }
 
@@ -231,6 +232,7 @@ export function ReceivablesTable({
       <TR key={r.id}>
         <TD className="font-medium">
           <Link href={`/receivables/${r.id}`} className="hover:text-brand hover:underline">{r.client}</Link>
+          {r.flexible && <Chip tone="blue" className="ml-2">Flexible</Chip>}
           {r.hrdc && <Chip tone="indigo" className="ml-2">HRDC</Chip>}
         </TD>
         <TD className="text-muted">{r.product ?? "—"}</TD>

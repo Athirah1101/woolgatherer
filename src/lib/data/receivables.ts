@@ -6,7 +6,7 @@ import type {
   Receivable,
   ReceivablePayment,
 } from "@/lib/types";
-import { summarizeReceivable, type ReceivableSummary } from "@/lib/finance/receivables";
+import { summarizeReceivable, isFlexiblePlan, type ReceivableSummary } from "@/lib/finance/receivables";
 import { todayISO } from "@/lib/finance/dates";
 
 export interface ReceivableRow {
@@ -39,7 +39,13 @@ export async function getReceivableRows(): Promise<ReceivableRow[]> {
     const pays = payByR.get(r.id) ?? [];
     const payIds = new Set(pays.map((p) => p.id));
     const allocs = (allocByPayment as PaymentAllocation[]).filter((a) => payIds.has(a.payment_id));
-    return { receivable: r, summary: summarizeReceivable(sched, pays, allocs, today) };
+    return {
+      receivable: r,
+      summary: summarizeReceivable(sched, pays, allocs, today, {
+        dealTotal: r.total_receivable,
+        flexible: isFlexiblePlan(r.payment_plan_type),
+      }),
+    };
   });
 }
 
@@ -87,7 +93,10 @@ export async function getReceivableDetail(id: string): Promise<ReceivableDetail 
     schedules: s,
     payments: p,
     allocations: a,
-    summary: summarizeReceivable(s, p, a, today),
+    summary: summarizeReceivable(s, p, a, today, {
+      dealTotal: (receivable as Receivable).total_receivable,
+      flexible: isFlexiblePlan((receivable as Receivable).payment_plan_type),
+    }),
     hrdcClaim: (hrdc as { id: string; stage: string } | null) ?? null,
   };
 }

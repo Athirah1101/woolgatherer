@@ -37,12 +37,14 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
 
   const scheduleJson = useMemo(
     () =>
-      JSON.stringify(
-        rows
-          .filter((r) => r.due_date && Number(r.expected_amount) > 0)
-          .map((r) => ({ due_date: r.due_date, expected_amount: Number(r.expected_amount) })),
-      ),
-    [rows],
+      plan === "flexible"
+        ? "[]"
+        : JSON.stringify(
+            rows
+              .filter((r) => r.due_date && Number(r.expected_amount) > 0)
+              .map((r) => ({ due_date: r.due_date, expected_amount: Number(r.expected_amount) })),
+          ),
+    [rows, plan],
   );
   const scheduleTotal = useMemo(
     () => sumMoney(rows.map((r) => Number(r.expected_amount) || 0)),
@@ -106,7 +108,18 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
                 </Field>
               </div>
 
-              {/* Schedule builder */}
+              {/* Schedule builder — a flexible deal has no fixed schedule; its
+                  expected payments are added on the client's record afterward. */}
+              {plan === "flexible" ? (
+                <div className="rounded-xl border border-dashed border-border bg-gray-50/60 p-4 text-sm text-muted">
+                  <p className="font-medium text-text">Flexible deal — no fixed schedule.</p>
+                  <p className="mt-1">
+                    Just set the total <strong>deal amount</strong> above. Once created, open the client&apos;s
+                    record to log deposits/partial payments and add the next expected payment(s) as sales
+                    confirms them. Outstanding is tracked as <em>deal amount − paid</em>.
+                  </p>
+                </div>
+              ) : (
               <div className="rounded-xl border border-border bg-gray-50/60 p-4">
                 <div className="mb-3 flex flex-wrap items-end gap-3">
                   <label className="text-sm">
@@ -170,6 +183,19 @@ export function NewReceivable({ salesPics }: { salesPics: string[] }) {
                   </span>
                 </div>
               </div>
+              )}
+
+              {/* Plan selector still available when flexible (to switch back). */}
+              {plan === "flexible" && (
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium">Payment Plan</span>
+                  <ComboSelect value={plan} onValueChange={setPlan} className="bg-surface max-w-xs">
+                    {PAYMENT_PLAN_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </ComboSelect>
+                </label>
+              )}
 
               <Field label="Remarks">
                 <Input name="remarks" placeholder="Short note shown in the table" />

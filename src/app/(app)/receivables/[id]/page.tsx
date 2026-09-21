@@ -15,6 +15,7 @@ import { formatDate, todayISO } from "@/lib/finance/dates";
 import {
   collectionStatusChip, receivableAttention, scheduleStatusChip,
 } from "@/lib/finance/display";
+import { isFlexiblePlan, PAYMENT_PLAN_OPTIONS } from "@/lib/finance/receivables";
 import { hrdcStageChip } from "@/lib/finance/display";
 import type { HrdcStage } from "@/lib/finance/hrdc";
 import {
@@ -34,6 +35,7 @@ export default async function ReceivableDetailPage({
   const { receivable: r, schedules, payments, allocations, summary, hrdcClaim } = detail;
   const methods = await getPaymentMethods();
   const isFinance = profile.role === "finance";
+  const flexible = isFlexiblePlan(r.payment_plan_type);
   const today = todayISO();
   const attn = receivableAttention(summary, today);
   const status = collectionStatusChip(summary.collectionStatus);
@@ -75,7 +77,7 @@ export default async function ReceivableDetailPage({
                 openSchedules={openSchedules}
                 defaultAmount={openSchedules[0]?.outstanding}
               />
-              <MonthlyPlanForm receivableId={r.id} />
+              {!flexible && <MonthlyPlanForm receivableId={r.id} />}
               <EditReceivable r={r} />
             </div>
           ) : undefined
@@ -128,17 +130,24 @@ export default async function ReceivableDetailPage({
         {/* Payment schedule */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <SectionTitle>Payment Schedule</SectionTitle>
-            {isFinance && <ScheduleRow receivableId={r.id} />}
+            <SectionTitle>{flexible ? "Expected Payments" : "Payment Schedule"}</SectionTitle>
+            {isFinance && <ScheduleRow receivableId={r.id} flexible={flexible} />}
           </div>
           {summary.schedules.length === 0 ? (
-            <EmptyState title="No instalments scheduled." message="Add instalments so collection can be tracked." />
+            <EmptyState
+              title={flexible ? "No expected payments yet." : "No instalments scheduled."}
+              message={
+                flexible
+                  ? "Add the next expected payment (amount + date) as sales confirms it. Deposits/partials are logged via Record Payment."
+                  : "Add instalments so collection can be tracked."
+              }
+            />
           ) : (
             <Card padded={false}>
               <Table>
                 <THead>
                   <TR>
-                    <TH>Due Date</TH>
+                    <TH>{flexible ? "Expected Date" : "Due Date"}</TH>
                     <TH right>Expected</TH>
                     <TH right>Paid</TH>
                     <TH right>Outstanding</TH>
@@ -173,7 +182,7 @@ export default async function ReceivableDetailPage({
                               {s.outstanding > 0 && (
                                 <RowRecordPayment receivableId={r.id} methods={methods} schedule={s} />
                               )}
-                              <ScheduleRow receivableId={r.id} row={row} derivedPaidDate={derivedPaidDate.get(s.id) ?? null} />
+                              <ScheduleRow receivableId={r.id} row={row} flexible={flexible} derivedPaidDate={derivedPaidDate.get(s.id) ?? null} />
                               {s.allocated === 0 && (
                                 <form action={deleteScheduleRow}>
                                   <input type="hidden" name="id" value={s.id} />
@@ -380,26 +389,28 @@ function RowRecordPayment({
 }
 
 function ScheduleRow({
-  receivableId, row, derivedPaidDate,
+  receivableId, row, derivedPaidDate, flexible,
 }: {
   receivableId: string;
   row?: { id: string; due_date: string; expected_amount: number; notes: string | null; paid_date: string | null };
   derivedPaidDate?: string | null;
+  flexible?: boolean;
 }) {
+  const noun = flexible ? "Expected Payment" : "Instalment";
   return (
     <FormDrawer
-      triggerLabel={row ? "Edit" : "+ Add Instalment"}
+      triggerLabel={row ? "Edit" : `+ Add ${flexible ? "Expected Payment" : "Instalment"}`}
       triggerVariant="secondary"
-      title={row ? "Edit Instalment" : "Add Instalment"}
+      title={row ? `Edit ${noun}` : `Add ${noun}`}
       action={saveScheduleRow}
-      submitLabel="Save Instalment"
+      submitLabel={`Save ${noun}`}
     >
       <input type="hidden" name="receivable_id" value={receivableId} />
       {row && <input type="hidden" name="id" value={row.id} />}
-      <Field label="Due Date" required>
+      <Field label={flexible ? "Expected Date" : "Due Date"} required>
         <DateWithToday name="due_date" defaultValue={row?.due_date} required />
       </Field>
-      <Field label="Expected Amount" required>
+      <Field label={flexible ? "Expected Amount" : "Expected Amount"} required>
         <MoneyInput name="expected_amount" defaultValue={row?.expected_amount} required />
       </Field>
       <Field
@@ -407,7 +418,7 @@ function ScheduleRow({
         hint={
           derivedPaidDate
             ? `Leave blank to use the date from recorded payments (${formatDate(derivedPaidDate)}).`
-            : "When this month was actually paid. Leave blank if not paid yet."
+            : "When this was actually paid. Leave blank if not paid yet."
         }
       >
         <DateWithToday name="paid_date" defaultValue={row?.paid_date ?? ""} />
@@ -440,6 +451,13 @@ function EditReceivable({ r }: { r: import("@/lib/types").Receivable }) {
         <Field label="Original Amount"><MoneyInput name="original_amount" defaultValue={r.original_amount} /></Field>
         <Field label="Total Receivable"><MoneyInput name="total_receivable" defaultValue={r.total_receivable} /></Field>
       </div>
+      <Field label="Payment Plan" hint="Choose 'Flexible' for deposit/partial deals tracked as a running balance with hand-added expected payments.">
+        <ComboSelect name="payment_plan_type" defaultValue={r.payment_plan_type}>
+          {PAYMENT_PLAN_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </ComboSelect>
+      </Field>
       <Field label="Status">
         <ComboSelect name="status" defaultValue={r.status}>
           <option value="active">Active</option>

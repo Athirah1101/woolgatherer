@@ -5,6 +5,7 @@ import { getSalesPics } from "@/lib/data/refs";
 import { PageHeader } from "@/components/ui";
 import { todayISO } from "@/lib/finance/dates";
 import { AgingChart, buildAging } from "@/components/AgingChart";
+import { isFlexiblePlan } from "@/lib/finance/receivables";
 import { NewReceivable } from "./NewReceivable";
 import { ReceivablesTable, type RecvRowView } from "./ReceivablesTable";
 
@@ -38,6 +39,7 @@ export default async function ReceivablesPage({
     collectionStatus: summary.collectionStatus,
     dealStatus: r.status,
     hrdc: r.hrdc_applicable,
+    flexible: isFlexiblePlan(r.payment_plan_type),
     remarks: r.remarks,
   }));
 
