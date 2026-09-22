@@ -70,6 +70,14 @@ export default async function PayablesPage() {
   const due3 = sumMoney(unpaid.filter((r) => r.attention.level === "due_3").map((r) => owedAmount(r.payable)));
   const due7 = sumMoney(unpaid.filter((r) => r.attention.level === "due_7").map((r) => owedAmount(r.payable)));
 
+  // Due-this-week heads-up for the arrangement board (a nudge only — nothing is
+  // auto-added). Counts unpaid bills that are overdue or due within 7 days.
+  const dueSoonLevels = ["overdue", "due_today", "due_3", "due_7"];
+  const dueSoonRows = unpaid.filter((r) => dueSoonLevels.includes(r.attention.level));
+  const dueSoonCount = dueSoonRows.length;
+  const dueSoonTotal = sumMoney(dueSoonRows.map((r) => owedAmount(r.payable)));
+  const overdueCount = unpaid.filter((r) => r.attention.level === "overdue").length;
+
   // Running total still owed to Joseph Chua (unpaid/partial paybacks to him).
   const owedJoseph = sumMoney(
     rows
@@ -150,7 +158,15 @@ export default async function PayablesPage() {
 
       {isFinance && (
         <div className="mb-6">
-          <ArrangementBoard items={arrangementItems} notes={arrangementNotes} dateLabel={nextSendDateLabel()} methods={methods} />
+          <ArrangementBoard
+            items={arrangementItems}
+            notes={arrangementNotes}
+            dateLabel={nextSendDateLabel()}
+            methods={methods}
+            dueSoonCount={dueSoonCount}
+            dueSoonTotal={dueSoonTotal}
+            overdueCount={overdueCount}
+          />
         </div>
       )}
 

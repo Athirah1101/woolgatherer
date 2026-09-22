@@ -42,11 +42,17 @@ export function ArrangementBoard({
   notes,
   dateLabel,
   methods,
+  dueSoonCount = 0,
+  dueSoonTotal = 0,
+  overdueCount = 0,
 }: {
   items: Payable[];
   notes: string;
   dateLabel: string;
   methods: PaymentMethod[];
+  dueSoonCount?: number;
+  dueSoonTotal?: number;
+  overdueCount?: number;
 }) {
   const [items, setItems] = useState(initial);
   const [drag, setDrag] = useState<{ section: Section; index: number } | null>(null);
@@ -169,6 +175,16 @@ export function ArrangementBoard({
         </div>
         <PostNowButton />
       </div>
+
+      {/* Heads-up only — nothing is added to the list automatically. */}
+      {dueSoonCount > 0 && (
+        <div className="flex flex-wrap items-center gap-x-1.5 border-b border-border bg-amber-50/70 px-4 py-2 text-xs text-amber-800">
+          <span>⚠</span>
+          <span className="font-semibold">{dueSoonCount} bill{dueSoonCount === 1 ? "" : "s"} due this week</span>
+          <span>({formatMYR(dueSoonTotal)}{overdueCount > 0 ? `, ${overdueCount} overdue` : ""})</span>
+          <span className="text-amber-700/80">— tick the ones you&apos;ll pay; nothing is added here automatically.</span>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted">
