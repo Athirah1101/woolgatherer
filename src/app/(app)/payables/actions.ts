@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { todayISO, formatDate } from "@/lib/finance/dates";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
+import { ensureDueSoonOnBoard } from "@/lib/data/arrangement";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
@@ -301,7 +302,7 @@ export async function addToArrangement(fd: FormData): Promise<void> {
   const max = Math.max(0, ...(rows ?? []).map((r) => Number(r.arrangement_order ?? 0)));
   await supabase
     .from("payables")
-    .update({ arrangement: true, arrangement_order: max + 1 })
+    .update({ arrangement: true, arrangement_order: max + 1, arrangement_dismissed: false })
     .eq("id", id);
   refresh();
 }
@@ -312,7 +313,11 @@ export async function removeFromArrangement(fd: FormData): Promise<void> {
   const supabase = await createClient();
   const id = s(fd, "id");
   if (!id) return;
-  await supabase.from("payables").update({ arrangement: false }).eq("id", id);
+  // Mark dismissed so the due-soon auto-add doesn't put it straight back.
+  await supabase
+    .from("payables")
+    .update({ arrangement: false, arrangement_dismissed: true })
+    .eq("id", id);
   refresh();
 }
 
@@ -373,6 +378,7 @@ export async function postPaymentsToLarkNow(_: ActionState, _fd: FormData): Prom
       return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
     }
     const supabase = await createClient();
+    await ensureDueSoonOnBoard(supabase); // include bills due within 7 days
     const text = await buildPaymentArrangementMessage(supabase);
     if (!text) return { error: "Nothing on the board yet — tick some payables into the list first." };
     const sent = await sendLark(text);

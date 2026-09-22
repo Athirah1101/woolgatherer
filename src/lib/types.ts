@@ -133,6 +133,8 @@ export interface Payable {
   arrangement_kiv?: boolean;
   arrangement_order?: number | null;
   arrangement_note?: string | null;
+  /** User removed this from the board — suppresses the due-soon auto-add. */
+  arrangement_dismissed?: boolean;
 }
 
 export type ExpenseStatus =

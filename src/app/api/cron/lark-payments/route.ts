@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
 import { buildPaymentArrangementMessage } from "@/lib/integrations/larkPayments";
+import { ensureDueSoonOnBoard } from "@/lib/data/arrangement";
 import { autopostPausedToday } from "@/lib/integrations/larkPause";
 
 // Posts the payment-arrangement list into the Lark group every Wed & Fri at noon
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, skipped: "auto-post paused for today" });
   }
 
-  const text = await buildPaymentArrangementMessage(createAdminClient());
+  const admin = createAdminClient();
+  await ensureDueSoonOnBoard(admin); // pull in bills due within 7 days first
+  const text = await buildPaymentArrangementMessage(admin);
   if (!text) return NextResponse.json({ ok: false, skipped: "no items on the arrangement board" });
 
   const sent = await sendLark(text);

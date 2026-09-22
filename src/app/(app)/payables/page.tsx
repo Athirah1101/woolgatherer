@@ -21,6 +21,7 @@ import { MarkPaid } from "./MarkPaid";
 import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
+import { ensureDueSoonOnBoard } from "@/lib/data/arrangement";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
@@ -30,6 +31,9 @@ export default async function PayablesPage() {
   // Make sure this month's recurring bills exist before we read the list, so a
   // rule that's due this month shows up without anyone pressing "Generate".
   await ensureRecurringForCurrentMonth(supabase);
+  // Safety net: auto-add any unpaid bill due within 7 days to the KIV list
+  // (unless it was removed by hand).
+  await ensureDueSoonOnBoard(supabase);
   const [allRows, cats, methods, notesRow] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
