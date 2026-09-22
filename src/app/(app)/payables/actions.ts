@@ -7,7 +7,6 @@ import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
 import { todayISO, formatDate } from "@/lib/finance/dates";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
-import { ensureDueSoonOnBoard } from "@/lib/data/arrangement";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
@@ -378,7 +377,6 @@ export async function postPaymentsToLarkNow(_: ActionState, _fd: FormData): Prom
       return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
     }
     const supabase = await createClient();
-    await ensureDueSoonOnBoard(supabase); // include bills due within 7 days
     const text = await buildPaymentArrangementMessage(supabase);
     if (!text) return { error: "Nothing on the board yet — tick some payables into the list first." };
     const sent = await sendLark(text);
