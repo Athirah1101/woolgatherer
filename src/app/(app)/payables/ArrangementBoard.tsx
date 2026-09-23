@@ -45,6 +45,9 @@ export function ArrangementBoard({
   dueSoonCount = 0,
   dueSoonTotal = 0,
   overdueCount = 0,
+  bankNow = 0,
+  refundsOwed = 0,
+  owingsExclDirectors = 0,
 }: {
   items: Payable[];
   notes: string;
@@ -53,6 +56,9 @@ export function ArrangementBoard({
   dueSoonCount?: number;
   dueSoonTotal?: number;
   overdueCount?: number;
+  bankNow?: number;
+  refundsOwed?: number;
+  owingsExclDirectors?: number;
 }) {
   const [items, setItems] = useState(initial);
   const [drag, setDrag] = useState<{ section: Section; index: number } | null>(null);
@@ -218,6 +224,31 @@ export function ArrangementBoard({
           )}
         </>
       )}
+
+      {/* Money summary — same figures as the Lark message. "After Payments"
+          updates live as items are toggled Will Pay / On Hold / KIV. */}
+      <div className="space-y-1.5 border-t border-border bg-surface/60 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-muted">Bank Balance Now</span>
+          <span className="font-medium tabular-nums">{formatMYR(bankNow)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-medium">🚨 Bank Balance After Payments</span>
+          <span
+            className={`font-semibold tabular-nums ${bankNow - payTotal < 0 ? "text-red-600" : "text-emerald-700"}`}
+          >
+            {formatMYR(bankNow - payTotal)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">‼️ Total Refunds we owe</span>
+          <span className="font-medium tabular-nums">{formatMYR(refundsOwed)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">🫪 Total Owings (excl. Directors&apos;)</span>
+          <span className="font-medium tabular-nums">{formatMYR(owingsExclDirectors)}</span>
+        </div>
+      </div>
 
       {/* General notes appended to the message (Public Bank context, upcoming salary, etc.). */}
       <div className="border-t border-border px-4 py-3">

@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { nextSendDateLabel } from "@/lib/integrations/larkPayments";
+import { nextSendDateLabel, getArrangementTotals } from "@/lib/integrations/larkPayments";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
@@ -30,11 +30,12 @@ export default async function PayablesPage() {
   // Make sure this month's recurring bills exist before we read the list, so a
   // rule that's due this month shows up without anyone pressing "Generate".
   await ensureRecurringForCurrentMonth(supabase);
-  const [allRows, cats, methods, notesRow] = await Promise.all([
+  const [allRows, cats, methods, notesRow, arrangementTotals] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
     getPaymentMethods(),
     supabase.from("app_settings").select("value").eq("key", "arrangement_notes").maybeSingle(),
+    getArrangementTotals(supabase),
   ]);
   const arrangementNotes = (notesRow.data?.value as string | undefined) ?? "";
 
@@ -166,6 +167,9 @@ export default async function PayablesPage() {
             dueSoonCount={dueSoonCount}
             dueSoonTotal={dueSoonTotal}
             overdueCount={overdueCount}
+            bankNow={arrangementTotals.bankNow}
+            refundsOwed={arrangementTotals.refundsOwed}
+            owingsExclDirectors={arrangementTotals.owingsExclDirectors}
           />
         </div>
       )}

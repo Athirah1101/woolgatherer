@@ -29,6 +29,65 @@ import { refundSummary } from "@/lib/finance/hrdc";
 const owing = (p: Payable) => p.status === "unpaid" || p.status === "partially_paid";
 const orderKey = (p: Payable) => p.arrangement_order ?? Number.MAX_SAFE_INTEGER;
 
+// Bank Balance Now = CIMB (the "Main Operating Account") + Airwallex only — the
+// money actually available for this pay run (other accounts are kept aside).
+const BALANCE_ACCOUNTS = ["main operating account", "airwallex"];
+
+export interface ArrangementTotals {
+  bankNow: number;
+  refundsOwed: number;
+  owingsExclDirectors: number;
+}
+
+/** The server-side totals shown on the board footer and in the Lark message.
+ *  Pure so the message and the on-screen board always agree. */
+function computeArrangementTotals(
+  payables: Payable[],
+  banks: { account_name: string; current_balance: number | string }[],
+  claims: HrdcClaim[],
+  refunds: HrdcRefund[],
+): ArrangementTotals {
+  const bankNow = banks
+    .filter((b) => BALANCE_ACCOUNTS.includes((b.account_name ?? "").trim().toLowerCase()))
+    .reduce((sum, b) => sum + Number(b.current_balance || 0), 0);
+
+  // Total Refunds we owe = remaining across all refund cases.
+  const refByClaim = new Map<string, HrdcRefund[]>();
+  for (const r of refunds) {
+    const list = refByClaim.get(r.claim_id) ?? [];
+    list.push(r);
+    refByClaim.set(r.claim_id, list);
+  }
+  const refundsOwed = claims.reduce(
+    (sum, c) => sum + refundSummary(c, refByClaim.get(c.id) ?? []).remaining,
+    0,
+  );
+
+  // Total Owings (Excluding Directors') = every still-owed payable that ISN'T a
+  // director payback (is_payback) or a refund mirror.
+  const owingsExclDirectors = payables
+    .filter((p) => owing(p) && !p.is_payback && p.source !== "refund")
+    .reduce((sum, p) => sum + owedAmount(p), 0);
+
+  return { bankNow, refundsOwed, owingsExclDirectors };
+}
+
+/** Fetch + compute the arrangement totals (for the on-screen board footer). */
+export async function getArrangementTotals(client: SupabaseClient): Promise<ArrangementTotals> {
+  const [{ data: pay }, { data: banks }, { data: claims }, { data: refunds }] = await Promise.all([
+    client.from("payables").select("*"),
+    client.from("bank_accounts").select("account_name, current_balance, active"),
+    client.from("hrdc_claims").select("*"),
+    client.from("hrdc_refunds").select("*"),
+  ]);
+  return computeArrangementTotals(
+    (pay ?? []) as Payable[],
+    (banks ?? []) as { account_name: string; current_balance: number | string }[],
+    (claims ?? []) as HrdcClaim[],
+    (refunds ?? []) as HrdcRefund[],
+  );
+}
+
 /**
  * The date the list is "for": the upcoming (or today's) Wednesday or Friday, in
  * Malaysia time (UTC+8), formatted D/M/YYYY (e.g. 2/9/2026).
@@ -78,31 +137,15 @@ export async function buildPaymentArrangementMessage(
 
   // Bank Balance Now = CIMB (the "Main Operating Account") + Airwallex only —
   // the money actually available for this pay run (other accounts are kept aside).
-  const BALANCE_ACCOUNTS = ["main operating account", "airwallex"];
-  const bankNow = ((banks ?? []) as { account_name: string; current_balance: number | string }[])
-    .filter((b) => BALANCE_ACCOUNTS.includes((b.account_name ?? "").trim().toLowerCase()))
-    .reduce((sum, b) => sum + Number(b.current_balance || 0), 0);
+  const { bankNow, refundsOwed, owingsExclDirectors } = computeArrangementTotals(
+    payables,
+    (banks ?? []) as { account_name: string; current_balance: number | string }[],
+    (claims ?? []) as HrdcClaim[],
+    (refunds ?? []) as HrdcRefund[],
+  );
 
   const payTotal = toPay.reduce((sum, p) => sum + owedAmount(p), 0);
   const afterPayments = bankNow - payTotal;
-
-  // Total Refunds we owe = remaining across all refund cases.
-  const refByClaim = new Map<string, HrdcRefund[]>();
-  for (const r of (refunds ?? []) as HrdcRefund[]) {
-    const list = refByClaim.get(r.claim_id) ?? [];
-    list.push(r);
-    refByClaim.set(r.claim_id, list);
-  }
-  const refundsOwed = ((claims ?? []) as HrdcClaim[]).reduce(
-    (sum, c) => sum + refundSummary(c, refByClaim.get(c.id) ?? []).remaining,
-    0,
-  );
-
-  // Total Owings (Excluding Directors') = every still-owed payable that ISN'T a
-  // director payback (is_payback). Board or not.
-  const owingsExclDirectors = payables
-    .filter((p) => owing(p) && !p.is_payback && p.source !== "refund")
-    .reduce((sum, p) => sum + owedAmount(p), 0);
 
   const line = (p: Payable, i: number) => {
     const note = p.arrangement_note?.trim();
