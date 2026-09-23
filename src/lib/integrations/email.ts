@@ -22,7 +22,10 @@ export async function sendNotification(
   toOverride?: string[],
 ): Promise<void> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return; // notifications not configured yet
+  if (!key) {
+    console.error("[email] RESEND_API_KEY not set — notification not sent:", subject);
+    return; // notifications not configured yet
+  }
   const from = process.env.RESEND_FROM || "FinanceOS <onboarding@resend.dev>";
   const to = toOverride && toOverride.length ? toOverride : recipients();
   if (to.length === 0) return;
@@ -37,13 +40,19 @@ export async function sendNotification(
     </div>`;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, subject: `FinanceOS — ${subject}`, html }),
     });
-  } catch {
-    /* email is best-effort */
+    // Surface Resend's rejection reason (bad key, unverified domain, quota, …)
+    // so a silently-failing notification is diagnosable in the server logs.
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[email] Resend rejected (${res.status}) from=${from} to=${to.join(",")}: ${body}`);
+    }
+  } catch (e) {
+    console.error("[email] Resend request failed:", (e as Error).message);
   }
 }
 
