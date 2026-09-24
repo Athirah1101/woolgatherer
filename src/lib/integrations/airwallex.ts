@@ -52,9 +52,63 @@ export interface AirwallexSyncResult {
   detail?: string;
 }
 
+interface AirwallexFinancialTxn {
+  amount?: number | string;
+  net?: number | string;
+  fee?: number | string;
+  currency?: string;
+  status?: string;
+}
+
 /**
- * Fetch the Airwallex MYR balance (available + pending) and write it to the
- * "Airwallex" bank account. Throws with a readable message on failure.
+ * Card / payment-link collections (Airwallex Payments) sit in a settlement
+ * queue for a few days before they reach the wallet, so the wallet balance
+ * alone misses money that's already ours. Sum the NET amount (after fees) of
+ * MYR financial transactions still PENDING settlement. Once a batch settles it
+ * moves into the wallet and drops out of this list, so nothing is counted
+ * twice. Best-effort: a failure never blocks the wallet sync.
+ */
+async function fetchPendingSettlements(token: string): Promise<{ amount: number; count: number; note: string }> {
+  try {
+    const from = new Date(Date.now() - 45 * 86400 * 1000).toISOString();
+    let amount = 0;
+    let count = 0;
+    for (let page = 0; page < 20; page++) {
+      const qs = new URLSearchParams({
+        status: "PENDING",
+        from_created_at: from,
+        page_num: String(page),
+        page_size: "100",
+      });
+      const res = await fetch(`${AIRWALLEX_BASE}/api/v1/pa/financial_transactions?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const body = (await res.json().catch(() => null)) as
+        | { items?: AirwallexFinancialTxn[]; has_more?: boolean; message?: string }
+        | null;
+      if (!res.ok) {
+        return { amount: 0, count: 0, note: `pending settlements unreadable: ${body?.message ?? res.statusText}` };
+      }
+      for (const t of body?.items ?? []) {
+        if (t.status?.toUpperCase() !== "PENDING") continue;
+        if ((t.currency ?? "").toUpperCase() !== AIRWALLEX_CURRENCY) continue;
+        const net = t.net != null ? toNum(t.net) : toNum(t.amount) - toNum(t.fee);
+        amount += net;
+        count++;
+      }
+      if (!body?.has_more) break;
+    }
+    return { amount: Math.round(amount * 100) / 100, count, note: "" };
+  } catch (e) {
+    return { amount: 0, count: 0, note: `pending settlements error: ${(e as Error).message}` };
+  }
+}
+
+/**
+ * Fetch the Airwallex MYR position — wallet balance plus card/payment-link
+ * collections still pending settlement — and write it to the "Airwallex" bank
+ * account. Throws with a readable message on failure.
  */
 export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
   const token = await getToken();
@@ -79,9 +133,15 @@ export async function syncAirwallexBalance(): Promise<AirwallexSyncResult> {
       ? toNum(l.total_amount)
       : toNum(l.available_amount) + toNum(l.pending_amount) + toNum(l.reserved_amount);
 
-  const balance = myrLines.reduce((sum, l) => sum + lineTotal(l), 0);
+  const wallet = myrLines.reduce((sum, l) => sum + lineTotal(l), 0);
   const available = myrLines.reduce((sum, l) => sum + toNum(l.available_amount), 0);
   const pending = myrLines.reduce((sum, l) => sum + toNum(l.pending_amount), 0);
+  const settling = await fetchPendingSettlements(token);
+  const balance = Math.round((wallet + settling.amount) * 100) / 100;
   const asOf = await writeBankBalance(AIRWALLEX_ACCOUNT_NAME, balance);
-  return { balance, available, pending, asOf };
+  const detail =
+    `wallet ${wallet.toFixed(2)} + pending settlement ${settling.amount.toFixed(2)}` +
+    (settling.count ? ` (${settling.count} txn)` : "") +
+    (settling.note ? ` · ${settling.note}` : "");
+  return { balance, available, pending, asOf, detail };
 }
