@@ -135,6 +135,8 @@ export interface Payable {
   arrangement_note?: string | null;
   /** User removed this from the board — suppresses the due-soon auto-add. */
   arrangement_dismissed?: boolean;
+  /** When this payment went out in a "Recently Paid Payables" Lark post (null = not yet). */
+  payments_made_posted_at?: string | null;
 }
 
 export type ExpenseStatus =

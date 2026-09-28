@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { nextSendDateLabel, getArrangementTotals, lastPayRunISO, payRunLabel } from "@/lib/integrations/larkPayments";
+import { nextSendDateLabel, getArrangementTotals, getUnpostedPayments } from "@/lib/integrations/larkPayments";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
@@ -30,12 +30,13 @@ export default async function PayablesPage() {
   // Make sure this month's recurring bills exist before we read the list, so a
   // rule that's due this month shows up without anyone pressing "Generate".
   await ensureRecurringForCurrentMonth(supabase);
-  const [allRows, cats, methods, notesRow, arrangementTotals] = await Promise.all([
+  const [allRows, cats, methods, notesRow, arrangementTotals, unposted] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
     getPaymentMethods(),
     supabase.from("app_settings").select("value").eq("key", "arrangement_notes").maybeSingle(),
     getArrangementTotals(supabase),
+    getUnpostedPayments(supabase),
   ]);
   const arrangementNotes = (notesRow.data?.value as string | undefined) ?? "";
 
@@ -123,7 +124,7 @@ export default async function PayablesPage() {
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
         actions={isFinance ? (
           <div className="flex flex-wrap items-center gap-2">
-            <PostPaymentsMadeButton runLabel={payRunLabel(lastPayRunISO())} />
+            <PostPaymentsMadeButton pendingCount={unposted.length} />
             <PayableForm cats={cats} methods={methods} />
           </div>
         ) : undefined}

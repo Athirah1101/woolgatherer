@@ -188,65 +188,79 @@ function dmy(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-/**
- * Compose the "Payments Made" recap for a given day: every payable whose
- * paid_date is that day, with amount + method and a running total. Returns null
- * when nothing was paid that day (so the cron can skip an empty message).
- */
-/**
- * The most recent pay-run day (Wednesday or Friday) on or before today, in
- * business time — e.g. on Mon 28 Sep it's Fri 25 Sep; on a Wed it's that Wed.
- */
-export function lastPayRunISO(today: string = todayISO()): string {
-  const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0=Sun … 3=Wed, 5=Fri
-  const back = Math.min((dow - 3 + 7) % 7, (dow - 5 + 7) % 7);
-  return addDays(today, -back);
+/** How far back an unposted payment can be and still get picked up. */
+const RECENT_DAYS = 30;
+
+export interface UnpostedPayment {
+  id: string;
+  payee: string;
+  description: string | null;
+  paid_date: string;
+  paid_amount: number | null;
+  amount: number;
+  status: string;
+  payment_method_id: string | null;
 }
 
-/** "2026-09-25" -> "25/9/2026" (for button labels). */
-export function payRunLabel(iso: string): string {
-  return dmy(iso);
+/** Paid payables not yet included in a "Recently Paid" post, oldest day first. */
+export async function getUnpostedPayments(client: SupabaseClient): Promise<UnpostedPayment[]> {
+  const { data } = await client
+    .from("payables")
+    .select("id, payee, description, paid_date, paid_amount, amount, status, payment_method_id")
+    .in("status", ["paid", "partially_paid"])
+    .is("payments_made_posted_at", null)
+    .gte("paid_date", addDays(todayISO(), -RECENT_DAYS))
+    .order("paid_date", { ascending: true });
+  return (data ?? []) as UnpostedPayment[];
 }
 
+/**
+ * Compose the "Recently Paid Payables" recap: every payment not posted yet,
+ * grouped under the date it went out, with a total. Returns null when there's
+ * nothing new; otherwise the text plus the ids to stamp as posted.
+ */
 export async function buildPaymentsMadeMessage(
   client: SupabaseClient,
-  dateISO: string,
-  throughISO: string = dateISO,
-): Promise<string | null> {
-  const [{ data: pays }, { data: methods }] = await Promise.all([
-    client
-      .from("payables")
-      .select("payee, description, paid_amount, amount, status, payment_method_id")
-      .gte("paid_date", dateISO)
-      .lte("paid_date", throughISO)
-      .in("status", ["paid", "partially_paid"]),
+): Promise<{ text: string; ids: string[] } | null> {
+  const [rows, { data: methods }] = await Promise.all([
+    getUnpostedPayments(client),
     client.from("payment_methods").select("id, name"),
   ]);
-
-  const rows = (pays ?? []) as Payable[];
   if (rows.length === 0) return null;
 
   const methodName = new Map(
     ((methods ?? []) as { id: string; name: string }[]).map((m) => [m.id, m.name]),
   );
 
-  let total = 0;
-  const lines = rows.map((p, i) => {
-    const amt = Number(p.paid_amount ?? 0) || Number(p.amount ?? 0);
-    total += amt;
-    const name = p.description?.trim() || p.payee;
-    const method = p.payment_method_id ? methodName.get(p.payment_method_id) : null;
-    const partial = p.status === "partially_paid" ? " (partial)" : "";
-    return `${i + 1}. ${name} - ${rm(amt)}${method ? ` · ${method}` : ""}${partial}`;
-  });
+  const byDay = new Map<string, UnpostedPayment[]>();
+  for (const p of rows) {
+    const list = byDay.get(p.paid_date) ?? [];
+    list.push(p);
+    byDay.set(p.paid_date, list);
+  }
 
-  return [
-    `✅ *Payments Made — ${dmy(dateISO)}*`,
+  let total = 0;
+  const body: string[] = [];
+  for (const [day, list] of byDay) {
+    body.push(`*${dmy(day)}*`);
+    list.forEach((p, i) => {
+      const amt = Number(p.paid_amount ?? 0) || Number(p.amount ?? 0);
+      total += amt;
+      const name = p.description?.trim() || p.payee;
+      const method = p.payment_method_id ? methodName.get(p.payment_method_id) : null;
+      const partial = p.status === "partially_paid" ? " (partial)" : "";
+      body.push(`${i + 1}. ${name} - ${rm(amt)}${method ? ` · ${method}` : ""}${partial}`);
+    });
+    body.push("");
+  }
+
+  const text = [
+    "✅ *Recently Paid Payables*",
     "",
-    ...lines,
-    "",
+    ...body,
     `*Total Paid ≈ ${rm(total)}*`,
     "",
     "_FinanceOS_",
   ].join("\n");
+  return { text, ids: rows.map((r) => r.id) };
 }
