@@ -11,6 +11,7 @@ import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
+import { linkPayableToRefundCase, syncClaimFromPayable } from "@/lib/data/refundPayable";
 import { buildPaymentArrangementMessage, buildPaymentsMadeMessage, lastPayRunISO } from "@/lib/integrations/larkPayments";
 
 async function financeGuard() {
@@ -105,9 +106,17 @@ export async function savePayable(_: ActionState, fd: FormData): Promise<ActionS
     if (id && fd.has("paid_date")) payload.paid_date = s(fd, "paid_date") || null;
     if (id && fd.has("paid_amount")) payload.paid_amount = n(fd, "paid_amount");
     const res = id
-      ? await supabase.from("payables").update(payload).eq("id", id)
-      : await supabase.from("payables").insert(payload);
+      ? await supabase.from("payables").update(payload).eq("id", id).select("id, source, invoice_ref").single()
+      : await supabase.from("payables").insert(payload).select("id, source, invoice_ref").single();
     if (res.error) return { error: res.error.message };
+    // "Refund to clients" payables are really refund cases: create/link the
+    // case in Refunds. If it's already linked, push the edit to the case.
+    if (res.data.source === "refund" && res.data.invoice_ref) {
+      await syncClaimFromPayable(supabase, res.data.invoice_ref, { payee, amount, due_date });
+      revalidatePath("/refunds");
+    } else if (await linkPayableToRefundCase(supabase, res.data.id)) {
+      revalidatePath("/refunds");
+    }
     await logActivity(supabase, {
       entity_type: "payable", entity_id: id || null, action: id ? "updated" : "created",
       actor: session.userId, summary: `${payee} — ${formatMYR(amount)}`,
