@@ -11,7 +11,7 @@ import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
-import { sendLark, larkConfigured } from "@/lib/integrations/lark";
+import { sendLark, sendLarkRich, larkConfigured } from "@/lib/integrations/lark";
 import { linkPayableToRefundCase, syncClaimFromPayable } from "@/lib/data/refundPayable";
 import { buildPaymentArrangementMessage, buildPaymentsMadeMessage } from "@/lib/integrations/larkPayments";
 
@@ -411,7 +411,8 @@ export async function postPaymentsMadeToLarkNow(_: ActionState, _fd: FormData): 
     // actually went out — so late approvals / repaired payments are never missed.
     const built = await buildPaymentsMadeMessage(supabase);
     if (!built) return { error: "Nothing new has been marked paid since the last post." };
-    const sent = await sendLark(built.text);
+    // Internal list (not for the founder) → real bold instead of *asterisks*.
+    const sent = await sendLarkRich(built.text);
     if (!sent) return { error: "Lark rejected the message. Check the webhook URL and keyword." };
     await supabase
       .from("payables")

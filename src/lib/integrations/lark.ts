@@ -29,3 +29,42 @@ export async function sendLark(text: string): Promise<boolean> {
     return false;
   }
 }
+
+type LarkTextEl = { tag: "text"; text: string; style?: string[] };
+
+/** "*bold* and _italic_" → Lark rich-text elements with real styling. */
+function toLarkLine(line: string): LarkTextEl[] {
+  const out: LarkTextEl[] = [];
+  const re = /\*([^*]+)\*|_([^_]+)_/g;
+  let last = 0;
+  for (let m = re.exec(line); m; m = re.exec(line)) {
+    if (m.index > last) out.push({ tag: "text", text: line.slice(last, m.index) });
+    out.push(m[1] != null ? { tag: "text", text: m[1], style: ["bold"] } : { tag: "text", text: m[2], style: ["italic"] });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push({ tag: "text", text: line.slice(last) });
+  return out.length ? out : [{ tag: "text", text: "" }];
+}
+
+/**
+ * Send a rich-text ("post") message: *text* shows as real bold and _text_ as
+ * italic instead of literal asterisks. For internal messages that are read in
+ * Lark itself (not copied into WhatsApp). Returns true on success.
+ */
+export async function sendLarkRich(text: string): Promise<boolean> {
+  const url = process.env.LARK_WEBHOOK_URL;
+  if (!url) return false;
+  try {
+    const content = text.split(/\r?\n/).map(toLarkLine);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ msg_type: "post", content: { post: { en_us: { title: "", content } } } }),
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as { code?: number; msg?: string } | null;
+    return res.ok && (body?.code ?? 0) === 0;
+  } catch {
+    return false;
+  }
+}
