@@ -80,7 +80,7 @@ async function fetchPendingSettlements(token: string): Promise<{ amount: number;
         page_num: String(page),
         page_size: "100",
       });
-      const res = await fetch(`${AIRWALLEX_BASE}/api/v1/pa/financial_transactions?${qs}`, {
+      const res = await fetch(`${AIRWALLEX_BASE}/api/v1/financial_transactions?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
