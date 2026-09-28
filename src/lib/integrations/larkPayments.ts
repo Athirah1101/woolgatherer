@@ -25,6 +25,7 @@ function rm(v: number): string {
   return `${neg ? "-" : ""}RM${out}`;
 }
 import { refundSummary } from "@/lib/finance/hrdc";
+import { addDays, todayISO } from "@/lib/finance/dates";
 
 const owing = (p: Payable) => p.status === "unpaid" || p.status === "partially_paid";
 const orderKey = (p: Payable) => p.arrangement_order ?? Number.MAX_SAFE_INTEGER;
@@ -192,15 +193,32 @@ function dmy(iso: string): string {
  * paid_date is that day, with amount + method and a running total. Returns null
  * when nothing was paid that day (so the cron can skip an empty message).
  */
+/**
+ * The most recent pay-run day (Wednesday or Friday) on or before today, in
+ * business time — e.g. on Mon 28 Sep it's Fri 25 Sep; on a Wed it's that Wed.
+ */
+export function lastPayRunISO(today: string = todayISO()): string {
+  const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0=Sun … 3=Wed, 5=Fri
+  const back = Math.min((dow - 3 + 7) % 7, (dow - 5 + 7) % 7);
+  return addDays(today, -back);
+}
+
+/** "2026-09-25" -> "25/9/2026" (for button labels). */
+export function payRunLabel(iso: string): string {
+  return dmy(iso);
+}
+
 export async function buildPaymentsMadeMessage(
   client: SupabaseClient,
   dateISO: string,
+  throughISO: string = dateISO,
 ): Promise<string | null> {
   const [{ data: pays }, { data: methods }] = await Promise.all([
     client
       .from("payables")
       .select("payee, description, paid_amount, amount, status, payment_method_id")
-      .eq("paid_date", dateISO)
+      .gte("paid_date", dateISO)
+      .lte("paid_date", throughISO)
       .in("status", ["paid", "partially_paid"]),
     client.from("payment_methods").select("id, name"),
   ]);

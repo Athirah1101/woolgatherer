@@ -11,7 +11,7 @@ import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
 import { sendNotification } from "@/lib/integrations/email";
 import { sendLark, larkConfigured } from "@/lib/integrations/lark";
-import { buildPaymentArrangementMessage, buildPaymentsMadeMessage } from "@/lib/integrations/larkPayments";
+import { buildPaymentArrangementMessage, buildPaymentsMadeMessage, lastPayRunISO } from "@/lib/integrations/larkPayments";
 
 async function financeGuard() {
   const session = await getSession();
@@ -395,8 +395,11 @@ export async function postPaymentsMadeToLarkNow(_: ActionState, _fd: FormData): 
       return { error: "Lark isn't set up yet — add LARK_WEBHOOK_URL in Vercel and redeploy." };
     }
     const supabase = await createClient();
-    const text = await buildPaymentsMadeMessage(supabase, todayISO());
-    if (!text) return { error: "Nothing marked paid today yet." };
+    // Recap the latest pay run (last Wed/Fri), including anything marked paid
+    // since then — so it can be posted any day, not just on the run day.
+    const runDate = lastPayRunISO();
+    const text = await buildPaymentsMadeMessage(supabase, runDate, todayISO());
+    if (!text) return { error: "Nothing marked paid since the last pay run yet." };
     const sent = await sendLark(text);
     if (!sent) return { error: "Lark rejected the message. Check the webhook URL and keyword." };
     return { ok: true };

@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { nextSendDateLabel, getArrangementTotals } from "@/lib/integrations/larkPayments";
+import { nextSendDateLabel, getArrangementTotals, lastPayRunISO, payRunLabel } from "@/lib/integrations/larkPayments";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
 import type { Category, Payable, PaymentMethod } from "@/lib/types";
@@ -123,7 +123,7 @@ export default async function PayablesPage() {
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
         actions={isFinance ? (
           <div className="flex flex-wrap items-center gap-2">
-            <PostPaymentsMadeButton />
+            <PostPaymentsMadeButton runLabel={payRunLabel(lastPayRunISO())} />
             <PayableForm cats={cats} methods={methods} />
           </div>
         ) : undefined}
