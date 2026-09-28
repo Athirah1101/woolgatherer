@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import type { ActionState } from "@/components/form";
-import { todayISO, formatDate } from "@/lib/finance/dates";
+import { todayISO, formatDate, dayOfMonth } from "@/lib/finance/dates";
+import type { Payable, RecurringPayable } from "@/lib/types";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { formatMYR, subMoney, round2, toSen } from "@/lib/finance/money";
 import { recordCashSnapshot } from "@/lib/data/cashHistory";
@@ -501,6 +502,54 @@ export async function rejectInvoice(fd: FormData): Promise<void> {
   refresh();
 }
 
+/**
+ * Push a recurring-rule edit onto the payables it already generated, so e.g.
+ * moving the due day from the 11th to the 15th also moves this month's bill.
+ * Only still-unpaid bills are touched (paid history stays as it was), and only
+ * the fields that actually changed on the rule — so a one-off tweak made on a
+ * single month's payable isn't overwritten by an unrelated rule edit.
+ */
+async function syncGeneratedPayables(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ruleId: string,
+  before: RecurringPayable,
+  after: {
+    name: string; payee: string | null; category_id: string | null; due_day: number;
+    default_amount: number; payment_method_id: string | null;
+  },
+) {
+  const changed = {
+    due: Number(before.due_day) !== after.due_day,
+    amount: Number(before.default_amount) !== after.default_amount,
+    payee: (before.payee ?? before.name) !== (after.payee ?? after.name),
+    name: before.name !== after.name,
+    category: before.category_id !== after.category_id,
+    method: before.payment_method_id !== after.payment_method_id,
+  };
+  if (!Object.values(changed).some(Boolean)) return;
+
+  const { data: bills } = await supabase
+    .from("payables")
+    .select("id, status, due_date, period_key, paid_amount, description")
+    .eq("recurring_rule_id", ruleId)
+    .in("status", ["unpaid", "partially_paid"]);
+
+  for (const b of (bills ?? []) as Payable[]) {
+    const upd: Record<string, unknown> = {};
+    if (changed.due) {
+      const month = b.period_key ?? b.due_date.slice(0, 7);
+      upd.due_date = dayOfMonth(`${month}-01`, after.due_day);
+    }
+    // Don't change the amount once part of it has been paid.
+    if (changed.amount && b.status === "unpaid" && !Number(b.paid_amount ?? 0)) upd.amount = after.default_amount;
+    if (changed.payee) upd.payee = after.payee ?? after.name;
+    if (changed.name && (b.description ?? "") === before.name) upd.description = after.name;
+    if (changed.category) upd.category_id = after.category_id;
+    if (changed.method) upd.payment_method_id = after.payment_method_id;
+    if (Object.keys(upd).length) await supabase.from("payables").update(upd).eq("id", b.id);
+  }
+}
+
 export async function saveRecurring(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     await financeGuard();
@@ -523,11 +572,16 @@ export async function saveRecurring(_: ActionState, fd: FormData): Promise<Actio
       active: fd.get("active") !== "false",
       notes: s(fd, "notes") || null,
     };
+    const { data: before } = id
+      ? await supabase.from("recurring_payables").select("*").eq("id", id).maybeSingle()
+      : { data: null };
     const res = id
       ? await supabase.from("recurring_payables").update(payload).eq("id", id)
       : await supabase.from("recurring_payables").insert(payload);
     if (res.error) return { error: res.error.message };
+    if (id && before) await syncGeneratedPayables(supabase, id, before as RecurringPayable, payload);
     revalidatePath("/settings/recurring");
+    refresh();
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
