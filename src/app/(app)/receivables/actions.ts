@@ -405,6 +405,45 @@ export async function recordPayment(_: ActionState, fd: FormData): Promise<Actio
   }
 }
 
+/**
+ * Correct a recorded payment's details — mainly the date it was actually
+ * received (e.g. deals imported with the due date as the payment date). The
+ * amount isn't editable here: void and re-record to change it, so the
+ * allocations to instalments stay consistent.
+ */
+export async function updatePayment(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    const session = await financeGuard();
+    const supabase = await createClient();
+    const id = s(fd, "id");
+    const receivable_id = s(fd, "receivable_id");
+    const received_date = s(fd, "received_date");
+    if (!id || !received_date) return { error: "Enter the date the payment was received" };
+    const { data: before } = await supabase
+      .from("receivable_payments").select("received_date").eq("id", id).single();
+    const { error } = await supabase
+      .from("receivable_payments")
+      .update({
+        received_date,
+        payment_method_id: s(fd, "payment_method_id") || null,
+        reference: s(fd, "reference") || null,
+        notes: s(fd, "notes") || null,
+      })
+      .eq("id", id);
+    if (error) return { error: error.message };
+    await logActivity(supabase, {
+      entity_type: "receivable", entity_id: receivable_id, action: "payment_edited", actor: session.userId,
+      summary: before?.received_date !== received_date
+        ? `Payment date ${before?.received_date ?? "—"} → ${received_date}`
+        : "Payment details edited",
+    });
+    refreshReceivableViews(receivable_id);
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function voidPayment(fd: FormData): Promise<void> {
   const session = await financeGuard();
   const supabase = await createClient();

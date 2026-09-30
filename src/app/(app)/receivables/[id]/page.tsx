@@ -19,7 +19,7 @@ import { isFlexiblePlan, PAYMENT_PLAN_OPTIONS } from "@/lib/finance/receivables"
 import { hrdcStageChip } from "@/lib/finance/display";
 import type { HrdcStage } from "@/lib/finance/hrdc";
 import {
-  deleteScheduleRow, recordPayment, saveScheduleRow, setMonthlyPlan, updateReceivable, voidPayment,
+  deleteScheduleRow, recordPayment, saveScheduleRow, setMonthlyPlan, updatePayment, updateReceivable, voidPayment,
 } from "../actions";
 
 export default async function ReceivableDetailPage({
@@ -229,11 +229,14 @@ export default async function ReceivableDetailPage({
                       {isFinance && (
                         <TD right>
                           {!p.voided && (
+                            <div className="flex justify-end gap-1">
+                            <EditPayment receivableId={r.id} payment={p} methods={methods} />
                             <form action={voidPayment}>
                               <input type="hidden" name="id" value={p.id} />
                               <input type="hidden" name="receivable_id" value={r.id} />
                               <InlineSubmit variant="danger" confirm="Void this payment? It will be excluded from all totals.">Void</InlineSubmit>
                             </form>
+                            </div>
                           )}
                           {p.voided && <span className="text-xs text-muted">Voided</span>}
                         </TD>
@@ -384,6 +387,47 @@ function RowRecordPayment({
       </label>
       <Field label="Reference / Transaction No."><Input name="reference" /></Field>
       <Field label="Notes"><Textarea name="notes" /></Field>
+    </FormDrawer>
+  );
+}
+
+/** Fix a recorded payment's date / method / reference (amount: void + re-record). */
+function EditPayment({
+  receivableId, payment, methods,
+}: {
+  receivableId: string;
+  payment: import("@/lib/types").ReceivablePayment;
+  methods: import("@/lib/types").PaymentMethod[];
+}) {
+  return (
+    <FormDrawer
+      triggerLabel="Edit"
+      triggerVariant="secondary"
+      title="Edit Payment"
+      action={updatePayment}
+      submitLabel="Save Payment"
+    >
+      <input type="hidden" name="id" value={payment.id} />
+      <input type="hidden" name="receivable_id" value={receivableId} />
+      <p className="text-sm text-muted">
+        Amount: <span className="font-medium text-foreground">{formatMYR(payment.amount)}</span> — to change the
+        amount, void this payment and record it again.
+      </p>
+      <Field label="Date Received" required hint="The day the money actually came in.">
+        <DateWithToday name="received_date" defaultValue={payment.received_date} required />
+      </Field>
+      <Field label="Payment Method">
+        <ComboSelect name="payment_method_id" defaultValue={payment.payment_method_id ?? ""}>
+          <option value="">—</option>
+          {methods.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </ComboSelect>
+      </Field>
+      <Field label="Reference / Transaction No.">
+        <Input name="reference" defaultValue={payment.reference ?? ""} />
+      </Field>
+      <Field label="Notes">
+        <Textarea name="notes" defaultValue={payment.notes ?? ""} />
+      </Field>
     </FormDrawer>
   );
 }
