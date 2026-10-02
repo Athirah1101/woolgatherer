@@ -139,6 +139,18 @@ export interface Payable {
   payments_made_posted_at?: string | null;
 }
 
+/** One payment made against a payable (bills paid bit by bit have several). */
+export interface PayablePayment {
+  id: string;
+  payable_id: string;
+  amount: number;
+  paid_date: string;
+  payment_method_id: string | null;
+  reference: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export type ExpenseStatus =
   | "new"
   | "awaiting_payment"

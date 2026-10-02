@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { nextSendDateLabel, getArrangementTotals, getUnpostedPayments } from "@/lib/integrations/larkPayments";
 import { getPayableRows } from "@/lib/data/payables";
 import { getCategories, getPaymentMethods, categoryName, methodName } from "@/lib/data/refs";
-import type { Category, Payable, PaymentMethod } from "@/lib/types";
+import type { Category, Payable, PayablePayment, PaymentMethod } from "@/lib/types";
 import {
   AttentionBadge, Card, EmptyState, PageHeader, StatusChip, SummaryCard,
   Table, TBody, TD, TH, THead, TR,
@@ -21,6 +21,7 @@ import { MarkPaid } from "./MarkPaid";
 import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
+import { PaymentHistory } from "./PaymentHistory";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
@@ -30,14 +31,21 @@ export default async function PayablesPage() {
   // Make sure this month's recurring bills exist before we read the list, so a
   // rule that's due this month shows up without anyone pressing "Generate".
   await ensureRecurringForCurrentMonth(supabase);
-  const [allRows, cats, methods, notesRow, arrangementTotals, unposted] = await Promise.all([
+  const [allRows, cats, methods, notesRow, arrangementTotals, unposted, paymentRows] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
     getPaymentMethods(),
     supabase.from("app_settings").select("value").eq("key", "arrangement_notes").maybeSingle(),
     getArrangementTotals(supabase),
     getUnpostedPayments(supabase),
+    supabase.from("payable_payments").select("*").order("paid_date", { ascending: true }),
   ]);
+  const paymentsByPayable = new Map<string, PayablePayment[]>();
+  for (const pay of (paymentRows.data ?? []) as PayablePayment[]) {
+    const list = paymentsByPayable.get(pay.payable_id) ?? [];
+    list.push(pay);
+    paymentsByPayable.set(pay.payable_id, list);
+  }
   const arrangementNotes = (notesRow.data?.value as string | undefined) ?? "";
 
   // Auto-imported invoices awaiting confirmation are kept out of every list and
@@ -226,6 +234,25 @@ export default async function PayablesPage() {
                           {formatMYR(p.paid_amount ?? 0)} paid · {formatMYR(owedAmount(p))} left
                         </div>
                       )}
+                      {(() => {
+                        const pays = paymentsByPayable.get(p.id) ?? [];
+                        const show = p.status === "partially_paid" || pays.length > 1;
+                        if (!show || !(Number(p.paid_amount ?? 0) > 0)) return null;
+                        return (
+                          <PaymentHistory
+                            title={`${p.payee}${p.description ? ` — ${p.description}` : ""}`}
+                            paidTotal={Number(p.paid_amount ?? 0)}
+                            total={Number(p.amount)}
+                            rows={pays.map((x) => ({
+                              date: x.paid_date,
+                              amount: Number(x.amount),
+                              method: x.payment_method_id ? methodName(methods, x.payment_method_id) : null,
+                              reference: x.reference,
+                              note: x.notes,
+                            }))}
+                          />
+                        );
+                      })()}
                     </TD>
                     <TD className="paid-col whitespace-nowrap text-muted">{p.paid_date ? formatDate(p.paid_date) : "—"}</TD>
                     <TD className="paid-col text-muted">{methodName(methods, p.payment_method_id)}</TD>
