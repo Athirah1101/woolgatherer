@@ -426,9 +426,29 @@ export async function postPaymentsMadeToLarkNow(_: ActionState, _fd: FormData): 
 }
 
 export async function cancelPayable(fd: FormData): Promise<void> {
-  await financeGuard();
+  const session = await financeGuard();
   const supabase = await createClient();
-  await supabase.from("payables").update({ status: "cancelled" }).eq("id", s(fd, "id"));
+  const id = s(fd, "id");
+  await supabase.from("payables").update({ status: "cancelled" }).eq("id", id);
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: id, action: "cancelled", actor: session.userId, summary: "Cancelled",
+  });
+  refresh();
+}
+
+/** Undo a cancel: back to unpaid, or partially paid if some was already paid. */
+export async function restorePayable(fd: FormData): Promise<void> {
+  const session = await financeGuard();
+  const supabase = await createClient();
+  const id = s(fd, "id");
+  if (!id) return;
+  const { data: p } = await supabase.from("payables").select("paid_amount").eq("id", id).single();
+  const status = Number(p?.paid_amount ?? 0) > 0 ? "partially_paid" : "unpaid";
+  await supabase.from("payables").update({ status }).eq("id", id).eq("status", "cancelled");
+  await logActivity(supabase, {
+    entity_type: "payable", entity_id: id, action: "restored", actor: session.userId,
+    summary: `Cancel undone — back to ${status === "unpaid" ? "Unpaid" : "Partially Paid"}`,
+  });
   refresh();
 }
 

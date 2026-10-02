@@ -21,7 +21,7 @@ import { MarkPaid } from "./MarkPaid";
 import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
-import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
+import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
   const { profile } = await requireRole("finance", "management");
@@ -295,6 +295,14 @@ export default async function PayablesPage() {
                             <form action={cancelPayable}>
                               <input type="hidden" name="id" value={p.id} />
                               <InlineSubmit variant="danger" confirm="Cancel this payable?">Cancel</InlineSubmit>
+                            </form>
+                          )}
+                          {p.status === "cancelled" && (
+                            <form action={restorePayable}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <InlineSubmit variant="secondary" confirm="Restore this payable? It goes back to the unpaid list.">
+                                ↩ Restore
+                              </InlineSubmit>
                             </form>
                           )}
                           <PayableAddForVendor cats={cats} methods={methods} p={p} />
