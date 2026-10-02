@@ -54,6 +54,7 @@ const NAV: Group[] = [
       { label: "Categories", href: "/settings/categories", icon: "🏷️", roles: FIN },
       { label: "Payment Methods", href: "/settings/payment-methods", icon: "💳", roles: FIN },
       { label: "Users & Access", href: "/settings/users", icon: "👥", roles: FIN },
+      { label: "Login Security", href: "/settings/security", icon: "🔐", roles: ALL },
     ],
   },
 ];
