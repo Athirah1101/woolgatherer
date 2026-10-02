@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, skipped: "LARK_WEBHOOK_URL not set" });
   }
 
-  if (await autopostPausedToday()) {
+  if (await autopostPausedToday("payments")) {
     return NextResponse.json({ ok: false, skipped: "auto-post paused for today" });
   }
 
