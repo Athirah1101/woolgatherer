@@ -22,6 +22,7 @@ import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { PaymentHistory } from "./PaymentHistory";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "./BoardsToggle";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
@@ -121,6 +122,7 @@ export default async function PayablesPage() {
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
 
   return (
+    <BoardsProvider>
     <div>
       {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
       <datalist id="payable-vendors">
@@ -131,14 +133,20 @@ export default async function PayablesPage() {
         sticky
         title="Payables"
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
-        actions={isFinance ? (
+        actions={
           <div className="flex flex-wrap items-center gap-2">
-            <PostPaymentsMadeButton pendingCount={unposted.length} />
-            <PayableForm cats={cats} methods={methods} />
+            <BoardsToggleButton />
+            {isFinance && (
+              <>
+                <PostPaymentsMadeButton pendingCount={unposted.length} />
+                <PayableForm cats={cats} methods={methods} />
+              </>
+            )}
           </div>
-        ) : undefined}
+        }
       />
 
+      <BoardsSection>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Overdue" value={formatMYR(overdue)} tone="red" />
         <SummaryCard label="Due Today" value={formatMYR(dueToday)} tone="orange" />
@@ -161,12 +169,15 @@ export default async function PayablesPage() {
         <AgingChart title="Aged Payables" buckets={agingPayables} />
       </div>
 
+      </BoardsSection>
+
       {isFinance && reviewItems.length > 0 && (
         <div className="mb-6">
           <ReviewSection items={reviewItems} cats={cats} methods={methods} />
         </div>
       )}
 
+      <BoardsSection>
       {isFinance && (
         <div className="mb-6">
           <ArrangementBoard
@@ -184,6 +195,8 @@ export default async function PayablesPage() {
           />
         </div>
       )}
+
+      </BoardsSection>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -345,6 +358,7 @@ export default async function PayablesPage() {
         />
       )}
     </div>
+    </BoardsProvider>
   );
 }
 
