@@ -28,7 +28,8 @@ import { refundSummary } from "@/lib/finance/hrdc";
 import { addDays, todayISO } from "@/lib/finance/dates";
 
 // The company's directors — money owed to them is left out of "Total Owings".
-const DIRECTOR_PAYEES = ["joseph chua", "david chua"];
+// (David Salary = salary owed to David for past months.)
+const DIRECTOR_PAYEES = ["joseph chua", "david chua", "david salary"];
 const isDirectorPayee = (payee: string | null | undefined) =>
   DIRECTOR_PAYEES.includes((payee ?? "").trim().toLowerCase());
 
@@ -43,6 +44,8 @@ export interface ArrangementTotals {
   bankNow: number;
   refundsOwed: number;
   owingsExclDirectors: number;
+  /** Everything still owed (refund mirrors excluded), director items included. */
+  owingsInclDirectors: number;
 }
 
 /** The server-side totals shown on the board footer and in the Lark message.
@@ -76,7 +79,11 @@ function computeArrangementTotals(
     .filter((p) => owing(p) && !p.is_payback && p.source !== "refund" && !isDirectorPayee(p.payee))
     .reduce((sum, p) => sum + owedAmount(p), 0);
 
-  return { bankNow, refundsOwed, owingsExclDirectors };
+  const owingsInclDirectors = payables
+    .filter((p) => owing(p) && p.source !== "refund")
+    .reduce((sum, p) => sum + owedAmount(p), 0);
+
+  return { bankNow, refundsOwed, owingsExclDirectors, owingsInclDirectors };
 }
 
 /** Fetch + compute the arrangement totals (for the on-screen board footer). */
@@ -144,7 +151,7 @@ export async function buildPaymentArrangementMessage(
 
   // Bank Balance Now = CIMB (the "Main Operating Account") + Airwallex only —
   // the money actually available for this pay run (other accounts are kept aside).
-  const { bankNow, refundsOwed, owingsExclDirectors } = computeArrangementTotals(
+  const { bankNow, refundsOwed, owingsExclDirectors, owingsInclDirectors } = computeArrangementTotals(
     payables,
     (banks ?? []) as { account_name: string; current_balance: number | string }[],
     (claims ?? []) as HrdcClaim[],
@@ -180,6 +187,7 @@ export async function buildPaymentArrangementMessage(
     "",
     `🚨 *Bank Balance After Payments ≈ ${rm(afterPayments)}*`,
     `‼️ *Total Refunds we owe ≈ ${rm(refundsOwed)}*`,
+    `🫪 *Total Owings (Including Directors') ≈ ${rm(owingsInclDirectors)}*`,
     `🫪 *Total Owings (Excluding Directors') ≈ ${rm(owingsExclDirectors)}*`,
     "",
     "_FinanceOS_",

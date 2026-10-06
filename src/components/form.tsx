@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import {
   Children,
   createContext,
@@ -295,7 +296,8 @@ export function FormDrawer({
       <button className={buttonClass(triggerVariant)} onClick={() => setOpen(true)}>
         {triggerLabel}
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 flex justify-end">
           <div
             className="absolute inset-0 bg-black/30"
@@ -347,7 +349,8 @@ export function FormDrawer({
               </form>
             </DrawerCtx.Provider>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

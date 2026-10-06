@@ -50,7 +50,7 @@ export function PageHeader({
         "mb-6 flex flex-wrap items-end justify-between gap-3",
         // top-[57px] on phones clears the sticky mobile menu bar.
         sticky &&
-          "sticky top-[57px] z-20 -mx-4 border-b border-border bg-bg/95 px-4 py-3 backdrop-blur md:top-0 md:-mx-8 md:px-8",
+          "sticky top-[57px] z-20 -mx-4 border-b border-border bg-bg px-4 py-3 md:top-0 md:-mx-8 md:px-8",
       )}
     >
       <div>

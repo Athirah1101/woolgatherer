@@ -180,6 +180,7 @@ export default async function PayablesPage() {
             bankNow={arrangementTotals.bankNow}
             refundsOwed={arrangementTotals.refundsOwed}
             owingsExclDirectors={arrangementTotals.owingsExclDirectors}
+            owingsInclDirectors={arrangementTotals.owingsInclDirectors}
           />
         </div>
       )}

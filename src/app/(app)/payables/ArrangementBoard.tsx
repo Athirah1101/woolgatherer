@@ -48,6 +48,7 @@ export function ArrangementBoard({
   bankNow = 0,
   refundsOwed = 0,
   owingsExclDirectors = 0,
+  owingsInclDirectors = 0,
 }: {
   items: Payable[];
   notes: string;
@@ -59,6 +60,7 @@ export function ArrangementBoard({
   bankNow?: number;
   refundsOwed?: number;
   owingsExclDirectors?: number;
+  owingsInclDirectors?: number;
 }) {
   const [items, setItems] = useState(initial);
   const [drag, setDrag] = useState<{ section: Section; index: number } | null>(null);
@@ -243,6 +245,10 @@ export function ArrangementBoard({
         <div className="flex items-center justify-between">
           <span className="text-muted">‼️ Total Refunds we owe</span>
           <span className="font-medium tabular-nums">{formatMYR(refundsOwed)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">🫪 Total Owings (incl. Directors&apos;)</span>
+          <span className="font-medium tabular-nums">{formatMYR(owingsInclDirectors)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted">🫪 Total Owings (excl. Directors&apos;)</span>
