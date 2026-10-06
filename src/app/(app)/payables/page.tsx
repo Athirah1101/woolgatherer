@@ -128,6 +128,7 @@ export default async function PayablesPage() {
       </datalist>
 
       <PageHeader
+        sticky
         title="Payables"
         subtitle="Money Vertex Mastery needs to pay. Attention is calculated automatically."
         actions={isFinance ? (

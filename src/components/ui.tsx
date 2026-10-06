@@ -36,13 +36,23 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  sticky,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  /** Keep the title and buttons pinned to the top while the page scrolls. */
+  sticky?: boolean;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div
+      className={cn(
+        "mb-6 flex flex-wrap items-end justify-between gap-3",
+        // top-[57px] on phones clears the sticky mobile menu bar.
+        sticky &&
+          "sticky top-[57px] z-20 -mx-4 border-b border-border bg-bg/95 px-4 py-3 backdrop-blur md:top-0 md:-mx-8 md:px-8",
+      )}
+    >
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}

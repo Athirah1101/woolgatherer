@@ -27,6 +27,11 @@ function rm(v: number): string {
 import { refundSummary } from "@/lib/finance/hrdc";
 import { addDays, todayISO } from "@/lib/finance/dates";
 
+// The company's directors — money owed to them is left out of "Total Owings".
+const DIRECTOR_PAYEES = ["joseph chua", "david chua"];
+const isDirectorPayee = (payee: string | null | undefined) =>
+  DIRECTOR_PAYEES.includes((payee ?? "").trim().toLowerCase());
+
 const owing = (p: Payable) => p.status === "unpaid" || p.status === "partially_paid";
 const orderKey = (p: Payable) => p.arrangement_order ?? Number.MAX_SAFE_INTEGER;
 
@@ -64,10 +69,11 @@ function computeArrangementTotals(
     0,
   );
 
-  // Total Owings (Excluding Directors') = every still-owed payable that ISN'T a
-  // director payback (is_payback) or a refund mirror.
+  // Total Owings (Excluding Directors') = every still-owed payable that ISN'T
+  // owed to a director (by payee name), a director payback (is_payback) or a
+  // refund mirror.
   const owingsExclDirectors = payables
-    .filter((p) => owing(p) && !p.is_payback && p.source !== "refund")
+    .filter((p) => owing(p) && !p.is_payback && p.source !== "refund" && !isDirectorPayee(p.payee))
     .reduce((sum, p) => sum + owedAmount(p), 0);
 
   return { bankNow, refundsOwed, owingsExclDirectors };
