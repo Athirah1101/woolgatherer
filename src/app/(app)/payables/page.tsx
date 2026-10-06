@@ -89,6 +89,19 @@ export default async function PayablesPage() {
   const dueSoonTotal = sumMoney(dueSoonRows.map((r) => owedAmount(r.payable)));
   const overdueCount = unpaid.filter((r) => r.attention.level === "overdue").length;
 
+  // Still owed to David Chua: his own payables plus his unpaid salary.
+  const owedDavidOther = sumMoney(
+    rows
+      .filter((r) => owing(r) && r.payable.payee?.trim().toLowerCase() === "david chua")
+      .map((r) => owedAmount(r.payable)),
+  );
+  const owedDavidSalary = sumMoney(
+    rows
+      .filter((r) => owing(r) && r.payable.payee?.trim().toLowerCase() === "david salary")
+      .map((r) => owedAmount(r.payable)),
+  );
+  const owedDavid = owedDavidOther + owedDavidSalary;
+
   // Running total still owed to Joseph Chua (unpaid/partial paybacks to him).
   const owedJoseph = sumMoney(
     rows
@@ -122,7 +135,7 @@ export default async function PayablesPage() {
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
 
   return (
-    <BoardsProvider ids={["summary", ...(owedJoseph > 0 ? ["joseph"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
+    <BoardsProvider ids={["summary", ...(owedJoseph > 0 ? ["joseph"] : []), ...(owedDavid > 0 ? ["david"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
     <div>
       {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
       <datalist id="payable-vendors">
@@ -163,6 +176,19 @@ export default async function PayablesPage() {
               value={formatMYR(owedJoseph)}
               tone="indigo"
               sub="Total still to repay for spending via the Joseph Chua method"
+            />
+          </div>
+        </BoardsSection>
+      )}
+
+      {owedDavid > 0 && (
+        <BoardsSection id="david" title="Owed to David Chua">
+          <div className="max-w-sm">
+            <SummaryCard
+              label="Owed to David Chua"
+              value={formatMYR(owedDavid)}
+              tone="indigo"
+              sub={`${formatMYR(owedDavidOther)} owed to David + ${formatMYR(owedDavidSalary)} unpaid salary`}
             />
           </div>
         </BoardsSection>
