@@ -1,54 +1,79 @@
 "use client";
 
-// Lets the big boards at the top of Payables (summary cards, aging chart,
-// Payment Priority List) be collapsed so the payables list gets the whole
-// screen. The choice is remembered in this browser.
+// Collapsible boards on the Payables page. Every board has its own slim title
+// bar that folds it away, and a master button hides / shows all of them. What
+// you collapse is remembered in this browser.
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/ui";
 
-const KEY = "payables-hide-boards";
-const Ctx = createContext<{ hidden: boolean; toggle: () => void }>({ hidden: false, toggle: () => {} });
+const KEY = "payables-hidden-boards";
 
-export function BoardsProvider({ children }: { children: ReactNode }) {
-  const [hidden, setHidden] = useState(false);
+interface BoardsCtx {
+  ids: string[];
+  hiddenIds: string[];
+  toggle: (id: string) => void;
+  setAll: (hide: boolean) => void;
+}
+const Ctx = createContext<BoardsCtx>({ ids: [], hiddenIds: [], toggle: () => {}, setAll: () => {} });
+
+export function BoardsProvider({ ids, children }: { ids: string[]; children: ReactNode }) {
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   useEffect(() => {
     try {
-      setHidden(localStorage.getItem(KEY) === "1");
+      const raw = localStorage.getItem(KEY);
+      if (raw) setHiddenIds(JSON.parse(raw) as string[]);
     } catch {
-      /* storage unavailable — default to shown */
+      /* storage unavailable — everything stays shown */
     }
   }, []);
-  function toggle() {
-    setHidden((h) => {
-      try {
-        localStorage.setItem(KEY, h ? "0" : "1");
-      } catch {
-        /* ignore */
-      }
-      return !h;
-    });
+  function save(next: string[]) {
+    setHiddenIds(next);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
   }
-  return <Ctx.Provider value={{ hidden, toggle }}>{children}</Ctx.Provider>;
+  const toggle = (id: string) =>
+    save(hiddenIds.includes(id) ? hiddenIds.filter((x) => x !== id) : [...hiddenIds, id]);
+  const setAll = (hide: boolean) => save(hide ? [...ids] : []);
+  return <Ctx.Provider value={{ ids, hiddenIds, toggle, setAll }}>{children}</Ctx.Provider>;
 }
 
+/** Master button: hides every board, or shows them all again. */
 export function BoardsToggleButton() {
-  const { hidden, toggle } = useContext(Ctx);
+  const { ids, hiddenIds, setAll } = useContext(Ctx);
+  const allHidden = ids.length > 0 && ids.every((id) => hiddenIds.includes(id));
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => setAll(!allHidden)}
       className={buttonClass("secondary")}
-      aria-expanded={!hidden}
-      title={hidden ? "Show the summary cards, chart and Payment Priority List" : "Hide them to see more of the list"}
+      title={allHidden ? "Show all the boards" : "Hide all the boards to see more of the list"}
     >
-      {hidden ? "▾ Show boards" : "▴ Hide boards"}
+      {allHidden ? "▾ Show all boards" : "▴ Hide all boards"}
     </button>
   );
 }
 
-/** Wraps the collapsible boards. Hidden with CSS so their state isn't lost. */
-export function BoardsSection({ children }: { children: ReactNode }) {
-  const { hidden } = useContext(Ctx);
-  return <div className={hidden ? "hidden" : undefined}>{children}</div>;
+/** One board with its own fold-away title bar. Hidden with CSS so state is kept. */
+export function BoardsSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const { hiddenIds, toggle } = useContext(Ctx);
+  const hidden = hiddenIds.includes(id);
+  return (
+    <section className="mb-6">
+      <button
+        type="button"
+        onClick={() => toggle(id)}
+        aria-expanded={!hidden}
+        className="mb-2 flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs font-semibold uppercase tracking-wide text-muted hover:bg-surface"
+      >
+        <span aria-hidden>{hidden ? "▸" : "▾"}</span>
+        <span>{title}</span>
+        <span className="ml-auto font-normal normal-case tracking-normal">{hidden ? "Show" : "Hide"}</span>
+      </button>
+      <div className={hidden ? "hidden" : undefined}>{children}</div>
+    </section>
+  );
 }

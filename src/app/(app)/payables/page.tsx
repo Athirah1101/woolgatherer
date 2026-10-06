@@ -122,7 +122,7 @@ export default async function PayablesPage() {
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
 
   return (
-    <BoardsProvider>
+    <BoardsProvider ids={["summary", ...(owedJoseph > 0 ? ["joseph"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
     <div>
       {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
       <datalist id="payable-vendors">
@@ -146,30 +146,32 @@ export default async function PayablesPage() {
         }
       />
 
-      <BoardsSection>
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryCard label="Overdue" value={formatMYR(overdue)} tone="red" />
-        <SummaryCard label="Due Today" value={formatMYR(dueToday)} tone="orange" />
-        <SummaryCard label="Due Within 3 Days" value={formatMYR(due3)} tone="amber" />
-        <SummaryCard label="Due Within 7 Days" value={formatMYR(due7)} tone="blue" />
-      </div>
+      <BoardsSection id="summary" title="Due summary">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <SummaryCard label="Overdue" value={formatMYR(overdue)} tone="red" />
+          <SummaryCard label="Due Today" value={formatMYR(dueToday)} tone="orange" />
+          <SummaryCard label="Due Within 3 Days" value={formatMYR(due3)} tone="amber" />
+          <SummaryCard label="Due Within 7 Days" value={formatMYR(due7)} tone="blue" />
+        </div>
+      </BoardsSection>
 
       {owedJoseph > 0 && (
-        <div className="mb-6 max-w-sm">
-          <SummaryCard
-            label="Owed to Joseph Chua"
-            value={formatMYR(owedJoseph)}
-            tone="indigo"
-            sub="Total still to repay for spending via the Joseph Chua method"
-          />
-        </div>
+        <BoardsSection id="joseph" title="Owed to Joseph Chua">
+          <div className="max-w-sm">
+            <SummaryCard
+              label="Owed to Joseph Chua"
+              value={formatMYR(owedJoseph)}
+              tone="indigo"
+              sub="Total still to repay for spending via the Joseph Chua method"
+            />
+          </div>
+        </BoardsSection>
       )}
 
-      <div className="mb-6">
+      <BoardsSection id="aging" title="Aged Payables">
         <AgingChart title="Aged Payables" buckets={agingPayables} />
-      </div>
-
       </BoardsSection>
+
 
       {isFinance && reviewItems.length > 0 && (
         <div className="mb-6">
@@ -177,9 +179,8 @@ export default async function PayablesPage() {
         </div>
       )}
 
-      <BoardsSection>
       {isFinance && (
-        <div className="mb-6">
+        <BoardsSection id="priority" title="Payment Priority List">
           <ArrangementBoard
             items={arrangementItems}
             notes={arrangementNotes}
@@ -193,10 +194,8 @@ export default async function PayablesPage() {
             owingsExclDirectors={arrangementTotals.owingsExclDirectors}
             owingsInclDirectors={arrangementTotals.owingsInclDirectors}
           />
-        </div>
+        </BoardsSection>
       )}
-
-      </BoardsSection>
 
       {rows.length === 0 ? (
         <EmptyState
