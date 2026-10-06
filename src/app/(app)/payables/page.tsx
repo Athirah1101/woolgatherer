@@ -135,7 +135,7 @@ export default async function PayablesPage() {
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
 
   return (
-    <BoardsProvider ids={["summary", ...(owedJoseph > 0 ? ["joseph"] : []), ...(owedDavid > 0 ? ["david"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
+    <BoardsProvider ids={["summary", ...(owedJoseph > 0 || owedDavid > 0 ? ["directors"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
     <div>
       {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
       <datalist id="payable-vendors">
@@ -168,28 +168,25 @@ export default async function PayablesPage() {
         </div>
       </BoardsSection>
 
-      {owedJoseph > 0 && (
-        <BoardsSection id="joseph" title="Owed to Joseph Chua">
-          <div className="max-w-sm">
-            <SummaryCard
-              label="Owed to Joseph Chua"
-              value={formatMYR(owedJoseph)}
-              tone="indigo"
-              sub="Total still to repay for spending via the Joseph Chua method"
-            />
-          </div>
-        </BoardsSection>
-      )}
-
-      {owedDavid > 0 && (
-        <BoardsSection id="david" title="Owed to David Chua">
-          <div className="max-w-sm">
-            <SummaryCard
-              label="Owed to David Chua"
-              value={formatMYR(owedDavid)}
-              tone="indigo"
-              sub={`${formatMYR(owedDavidOther)} owed to David + ${formatMYR(owedDavidSalary)} unpaid salary`}
-            />
+      {(owedJoseph > 0 || owedDavid > 0) && (
+        <BoardsSection id="directors" title="Owed to directors">
+          <div className="grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
+            {owedJoseph > 0 && (
+              <SummaryCard
+                label="Owed to Joseph Chua"
+                value={formatMYR(owedJoseph)}
+                tone="indigo"
+                sub="Total still to repay for spending via the Joseph Chua method"
+              />
+            )}
+            {owedDavid > 0 && (
+              <SummaryCard
+                label="Owed to David Chua"
+                value={formatMYR(owedDavid)}
+                tone="indigo"
+                sub={`${formatMYR(owedDavidOther)} owed to David + ${formatMYR(owedDavidSalary)} unpaid salary`}
+              />
+            )}
           </div>
         </BoardsSection>
       )}
