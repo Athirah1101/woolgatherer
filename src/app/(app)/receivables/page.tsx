@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { getReceivableRows } from "@/lib/data/receivables";
 import { getSalesPics } from "@/lib/data/refs";
 import { PageHeader } from "@/components/ui";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { todayISO } from "@/lib/finance/dates";
 import { AgingChart, buildAging } from "@/components/AgingChart";
 import { isFlexiblePlan } from "@/lib/finance/receivables";
@@ -55,11 +56,17 @@ export default async function ReceivablesPage({
   );
 
   return (
+    <BoardsProvider pageKey="receivables" ids={isSalesView ? [] : ["aging"]}>
     <div>
       <PageHeader
         title="Receivables"
         subtitle={isSalesView ? "Collection view — the deals assigned to you." : "Track every deal from schedule to collection."}
-        actions={profile.role === "finance" && !asPic ? <NewReceivable salesPics={salesPics} /> : undefined}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {!isSalesView && <BoardsToggleButton />}
+            {profile.role === "finance" && !asPic && <NewReceivable salesPics={salesPics} />}
+          </div>
+        }
       />
 
       {asPic && (
@@ -81,9 +88,9 @@ export default async function ReceivablesPage({
       )}
 
       {!isSalesView && (
-        <div className="mb-6">
+        <BoardsSection id="aging" title="Aged Receivables">
           <AgingChart title="Aged Receivables" buckets={agingReceivables} />
-        </div>
+        </BoardsSection>
       )}
 
       <ReceivablesTable
@@ -94,5 +101,6 @@ export default async function ReceivablesPage({
         showSalesPic={!isSalesView}
       />
     </div>
+    </BoardsProvider>
   );
 }

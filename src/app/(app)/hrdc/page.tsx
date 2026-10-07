@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { requireRole } from "@/lib/auth";
 import { getHrdcRows } from "@/lib/data/hrdc";
 import {
@@ -45,14 +46,21 @@ export default async function HrdcPage({
   const shown = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
 
   return (
+    <BoardsProvider pageKey="hrdc" ids={["summary"]}>
     <div>
       <PageHeader
         title="HRDC Claims"
         subtitle="Full claim lifecycle — grant, training, submission, processing, and the 30-day client refund."
-        actions={isFinance ? <ButtonLink href="/hrdc/new">+ New HRDC Claim</ButtonLink> : undefined}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <BoardsToggleButton />
+            {isFinance && <ButtonLink href="/hrdc/new">+ New HRDC Claim</ButtonLink>}
+          </div>
+        }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <BoardsSection id="summary" title="Claim summary">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <SummaryCard label="Refund Amount Due" value={formatMYR(refundAmountDue)} tone="orange" />
         <SummaryCard label="Refunds ≤ 7 Days" value={refundsDue7} tone="amber" />
         <SummaryCard label="Refunds Overdue" value={refundsOverdue} tone="red" />
@@ -60,6 +68,7 @@ export default async function HrdcPage({
         <SummaryCard label="Amount Processing" value={formatMYR(amountProcessing)} tone="blue" />
         <SummaryCard label="Queries Open" value={queriesOpen} tone={queriesOpen ? "red" : "neutral"} />
       </div>
+      </BoardsSection>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
@@ -143,5 +152,6 @@ export default async function HrdcPage({
         </>
       )}
     </div>
+    </BoardsProvider>
   );
 }

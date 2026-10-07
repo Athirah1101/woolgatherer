@@ -1,13 +1,11 @@
 "use client";
 
-// Collapsible boards on the Payables page. Every board has its own slim title
+// Collapsible boards at the top of a page. Every board has its own slim title
 // bar that folds it away, and a master button hides / shows all of them. What
-// you collapse is remembered in this browser.
+// you collapse is remembered in this browser, separately for each page.
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/ui";
-
-const KEY = "payables-hidden-boards";
 
 interface BoardsCtx {
   ids: string[];
@@ -17,7 +15,8 @@ interface BoardsCtx {
 }
 const Ctx = createContext<BoardsCtx>({ ids: [], hiddenIds: [], toggle: () => {}, setAll: () => {} });
 
-export function BoardsProvider({ ids, children }: { ids: string[]; children: ReactNode }) {
+export function BoardsProvider({ pageKey, ids, children }: { pageKey: string; ids: string[]; children: ReactNode }) {
+  const KEY = `${pageKey}-hidden-boards`;
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   useEffect(() => {
     try {
@@ -26,7 +25,7 @@ export function BoardsProvider({ ids, children }: { ids: string[]; children: Rea
     } catch {
       /* storage unavailable — everything stays shown */
     }
-  }, []);
+  }, [KEY]);
   function save(next: string[]) {
     setHiddenIds(next);
     try {

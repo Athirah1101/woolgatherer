@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { requireRole } from "@/lib/auth";
 import { getHrdcRows } from "@/lib/data/hrdc";
 import { getPaymentMethods } from "@/lib/data/refs";
@@ -64,14 +65,16 @@ export default async function RefundsPage({
   const due7 = cases.filter((r) => r.refundAttn && r.refundAttn.days >= 0 && r.refundAttn.days <= 7).length;
 
   return (
+    <BoardsProvider pageKey="refunds" ids={["summary"]}>
     <div>
       <PageHeader
         title="Refunds"
         subtitle="Money owed back to clients — HRDC, deposits, changed-mind and more. HRDC refunds carry the 30-day clock."
         actions={
-          isFinance ? (
-            <RefundCaseForm trigger="+ New Refund Case" />
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <BoardsToggleButton />
+            {isFinance && <RefundCaseForm trigger="+ New Refund Case" />}
+          </div>
         }
       />
 
@@ -97,12 +100,14 @@ export default async function RefundsPage({
         <TableSearch targetId="refunds-rows" placeholder="Search client, type or notes…" className="w-56" />
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <BoardsSection id="summary" title="Refund summary">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Refund Remaining" value={formatMYR(totalRemaining)} tone="orange" />
         <SummaryCard label="Refunds Overdue" value={overdue} tone={overdue ? "red" : "neutral"} />
         <SummaryCard label="Due ≤ 7 Days" value={due7} tone={due7 ? "amber" : "neutral"} />
         <SummaryCard label="Total Refunded" value={formatMYR(totalRefunded)} tone="green" />
       </div>
+      </BoardsSection>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Main table */}
@@ -197,5 +202,6 @@ export default async function RefundsPage({
         </div>
       </div>
     </div>
+    </BoardsProvider>
   );
 }

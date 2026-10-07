@@ -25,7 +25,7 @@ import { PaymentHistory } from "./PaymentHistory";
 import { OwedBreakdownButton } from "./OwedBreakdownButton";
 import { AmountWithDefault, type PayableDefaultAmount } from "./AmountWithDefault";
 import { buildOwedBreakdown } from "@/lib/data/owedBreakdown";
-import { BoardsProvider, BoardsSection, BoardsToggleButton } from "./BoardsToggle";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
 export default async function PayablesPage() {
@@ -147,7 +147,7 @@ export default async function PayablesPage() {
   const vendors = [...new Set(rows.map((r) => r.payable.payee).filter(Boolean))].sort();
 
   return (
-    <BoardsProvider ids={["summary", ...(owedJoseph > 0 || owedDavid > 0 ? ["directors"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
+    <BoardsProvider pageKey="payables" ids={["summary", ...(owedJoseph > 0 || owedDavid > 0 ? ["directors"] : []), "aging", ...(isFinance ? ["priority"] : [])]}>
     <div>
       {/* Shared vendor suggestions — referenced by every payee input via list="payable-vendors". */}
       <datalist id="payable-vendors">

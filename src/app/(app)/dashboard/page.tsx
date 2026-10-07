@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { getDashboardData } from "@/lib/data/dashboard";
-import { Card, EmptyState, PageHeader, SectionTitle, SummaryCard, cn } from "@/components/ui";
+import { Card, EmptyState, PageHeader, SummaryCard, cn } from "@/components/ui";
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { formatMYR } from "@/lib/finance/money";
 import type { AttentionSeverity } from "@/lib/finance/attention";
 
@@ -24,16 +25,19 @@ export default async function DashboardPage() {
   const isSales = profile.role === "sales";
   const canSeeInternal = profile.role === "finance" || profile.role === "management";
 
+  const boardIds = ["attention", ...(isSales ? ["collection"] : []), ...(canSeeInternal ? ["cash", "receivables", "payables", "hrdc"] : [])];
+
   return (
+    <BoardsProvider pageKey="dashboard" ids={boardIds}>
     <div>
       <PageHeader
+        actions={<BoardsToggleButton />}
         title={`Good day, ${(profile.full_name ?? "there").split(" ")[0]}`}
         subtitle={isSales ? "Your receivables that need collection." : "What requires Finance's attention today."}
       />
 
       {/* Attention Required — the operational heart */}
-      <div className="mb-8">
-        <SectionTitle>Attention Required</SectionTitle>
+      <BoardsSection id="attention" title="Attention required">
         {d.attention.length === 0 ? (
           <EmptyState title="Nothing needs attention right now." message="No overdue items, due payments, or refund deadlines." />
         ) : (
@@ -51,53 +55,48 @@ export default async function DashboardPage() {
             </ul>
           </Card>
         )}
-      </div>
+      </BoardsSection>
 
       {/* Sales: collection view only */}
       {isSales && (
-        <div className="mb-8">
-          <SectionTitle>Your Collection</SectionTitle>
+        <BoardsSection id="collection" title="Your collection">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             <SummaryCard label="Outstanding" value={formatMYR(d.recv.outstanding)} tone="amber" href="/receivables?quick=outstanding" />
             <SummaryCard label="Overdue" value={formatMYR(d.recv.overdue)} tone="red" href="/receivables?quick=overdue" />
             <SummaryCard label="Due This Week" value={formatMYR(d.recv.dueThisWeek)} tone="blue" href="/receivables?quick=due_week" />
           </div>
-        </div>
+        </BoardsSection>
       )}
 
       {canSeeInternal && (
         <>
-          <div className="mb-8">
-            <SectionTitle>Cash</SectionTitle>
+          <BoardsSection id="cash" title="Cash">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Current Cash" value={formatMYR(d.currentCash)} tone="green" href="/settings/bank-accounts" />
               <SummaryCard label="Projected Month-End Cash" value={formatMYR(d.projectedMonthEnd)}
                 tone={d.projectedMonthEnd >= d.currentCash ? "green" : "red"} href="/cashflow" />
             </div>
-          </div>
+          </BoardsSection>
 
-          <div className="mb-8">
-            <SectionTitle>Receivables</SectionTitle>
+          <BoardsSection id="receivables" title="Receivables">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Outstanding" value={formatMYR(d.recv.outstanding)} tone="amber" href="/receivables?quick=outstanding" />
               <SummaryCard label="Overdue" value={formatMYR(d.recv.overdue)} tone="red" href="/receivables?quick=overdue" />
               <SummaryCard label="Due This Week" value={formatMYR(d.recv.dueThisWeek)} tone="blue" href="/receivables?quick=due_week" />
               <SummaryCard label="Due This Month" value={formatMYR(d.recv.dueThisMonth)} href="/receivables?quick=due_month" />
             </div>
-          </div>
+          </BoardsSection>
 
-          <div className="mb-8">
-            <SectionTitle>Payables</SectionTitle>
+          <BoardsSection id="payables" title="Payables">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <SummaryCard label="Overdue" value={formatMYR(d.pay.overdue)} tone="red" href="/payables" />
               <SummaryCard label="Due Today" value={formatMYR(d.pay.dueToday)} tone="orange" href="/payables" />
               <SummaryCard label="Due Within 3 Days" value={formatMYR(d.pay.due3)} tone="amber" href="/payables" />
               <SummaryCard label="Due Within 7 Days" value={formatMYR(d.pay.due7)} tone="blue" href="/payables" />
             </div>
-          </div>
+          </BoardsSection>
 
-          <div className="mb-8">
-            <SectionTitle>HRDC</SectionTitle>
+          <BoardsSection id="hrdc" title="HRDC">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
               <SummaryCard label="Claims To Submit" value={d.hrdc.toSubmit} tone="amber" href="/hrdc?tab=claim_to_submit" />
               <SummaryCard label="Processing" value={d.hrdc.processing} tone="blue" href="/hrdc?tab=processing" />
@@ -106,9 +105,10 @@ export default async function DashboardPage() {
               <SummaryCard label="Refunds ≤ 7 Days" value={d.hrdc.refundsDue7} tone="amber" href="/hrdc?tab=refund_due" />
               <SummaryCard label="Overdue Refunds" value={d.hrdc.refundsOverdue} tone="red" href="/hrdc?tab=refund_due" />
             </div>
-          </div>
+          </BoardsSection>
         </>
       )}
     </div>
+    </BoardsProvider>
   );
 }

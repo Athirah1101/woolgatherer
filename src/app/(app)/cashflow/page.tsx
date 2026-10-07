@@ -1,3 +1,4 @@
+import { BoardsProvider, BoardsSection, BoardsToggleButton } from "@/components/Boards";
 import { requireRole } from "@/lib/auth";
 import { buildMovements } from "@/lib/data/cashflow";
 import { getBankAccounts } from "@/lib/data/refs";
@@ -46,14 +47,17 @@ export default async function CashflowPage({
   const inWindow = filterMovements(movements, start, end);
 
   return (
+    <BoardsProvider pageKey="cashflow" ids={["projection", "actual"]}>
     <div>
       <PageHeader
+        actions={<BoardsToggleButton />}
         title="Cashflow"
         subtitle={`${formatDate(start)} → ${formatDate(end)} · derived automatically from receivables, payables, expenses and HRDC.`}
       />
       <PeriodPicker />
 
-      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <BoardsSection id="projection" title="Cash projection">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryCard label="Starting / Current Cash" value={formatMYR(summary.currentCash)} />
         <SummaryCard label="Expected Cash In" value={formatMYR(summary.expectedIn)} tone="green" />
         <SummaryCard label="Expected Cash Out" value={formatMYR(summary.expectedOut)} tone="amber" />
@@ -64,7 +68,9 @@ export default async function CashflowPage({
           sub="Current + Expected In − Expected Out"
         />
       </div>
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
+      </BoardsSection>
+      <BoardsSection id="actual" title="Actual movement">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <SummaryCard label="Actual Cash In (recorded)" value={formatMYR(summary.actualIn)} tone="green" />
         <SummaryCard label="Actual Cash Out (recorded)" value={formatMYR(summary.actualOut)} tone="orange" />
         <SummaryCard
@@ -73,6 +79,7 @@ export default async function CashflowPage({
           tone={summary.netActual >= 0 ? "green" : "red"}
         />
       </div>
+      </BoardsSection>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
         Movement Timeline
@@ -112,5 +119,6 @@ export default async function CashflowPage({
         </Card>
       )}
     </div>
+    </BoardsProvider>
   );
 }
