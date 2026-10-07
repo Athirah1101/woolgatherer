@@ -117,6 +117,11 @@ export async function savePayable(_: ActionState, fd: FormData): Promise<ActionS
       ? await supabase.from("payables").update(payload).eq("id", id).select("id, source, invoice_ref").single()
       : await supabase.from("payables").insert(payload).select("id, source, invoice_ref").single();
     if (res.error) return { error: res.error.message };
+    // "Remember this amount as the default" → upsert the payee + category default.
+    if (fd.get("save_default") && amount > 0) {
+      await upsertPayableDefault(supabase, payee, (payload.category_id as string | null) ?? null, amount);
+      revalidatePath("/settings/default-amounts");
+    }
     // Correcting a paid bill's recorded payment: if it has exactly one payment
     // on file, keep that record in step with the edited amount / date.
     if (id && (fd.has("paid_amount") || fd.has("paid_date"))) {
@@ -604,6 +609,24 @@ export async function rejectInvoice(fd: FormData): Promise<void> {
  * the fields that actually changed on the rule — so a one-off tweak made on a
  * single month's payable isn't overwritten by an unrelated rule edit.
  */
+/** Insert or update the default amount for a payee + category. */
+export async function upsertPayableDefault(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  payee: string,
+  categoryId: string | null,
+  amount: number,
+) {
+  const clean = payee.trim();
+  let q = supabase.from("payable_defaults").select("id").ilike("payee", clean);
+  q = categoryId ? q.eq("category_id", categoryId) : q.is("category_id", null);
+  const { data: existing } = await q.limit(1).maybeSingle();
+  if (existing) {
+    await supabase.from("payable_defaults").update({ amount, updated_at: new Date().toISOString() }).eq("id", existing.id);
+  } else {
+    await supabase.from("payable_defaults").insert({ payee: clean, category_id: categoryId, amount });
+  }
+}
+
 async function syncGeneratedPayables(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ruleId: string,

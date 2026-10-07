@@ -31,6 +31,8 @@ export function CategorySelect({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const firstRender = useRef(true);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,16 @@ export function CategorySelect({
     if (adding) addInputRef.current?.focus();
   }, [adding]);
 
+  // Tell the surrounding form when the category changes (e.g. so the default
+  // amount for this payee + category can be filled in).
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    hiddenRef.current?.dispatchEvent(new Event("input", { bubbles: true }));
+  }, [value]);
+
   const selected = options.find((o) => o.id === value);
 
   async function addNew() {
@@ -85,7 +97,7 @@ export function CategorySelect({
 
   return (
     <div className="relative" ref={ref}>
-      <input type="hidden" name={name} value={value} />
+      <input ref={hiddenRef} type="hidden" name={name} value={value} />
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

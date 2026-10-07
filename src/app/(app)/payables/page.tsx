@@ -23,6 +23,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { PaymentHistory } from "./PaymentHistory";
 import { OwedBreakdownButton } from "./OwedBreakdownButton";
+import { AmountWithDefault, type PayableDefaultAmount } from "./AmountWithDefault";
 import { buildOwedBreakdown } from "@/lib/data/owedBreakdown";
 import { BoardsProvider, BoardsSection, BoardsToggleButton } from "./BoardsToggle";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
@@ -34,7 +35,7 @@ export default async function PayablesPage() {
   // Make sure this month's recurring bills exist before we read the list, so a
   // rule that's due this month shows up without anyone pressing "Generate".
   await ensureRecurringForCurrentMonth(supabase);
-  const [allRows, cats, methods, notesRow, arrangementTotals, unposted, paymentRows] = await Promise.all([
+  const [allRows, cats, methods, notesRow, arrangementTotals, unposted, paymentRows, defaultRows] = await Promise.all([
     getPayableRows(),
     getCategories("payable"),
     getPaymentMethods(),
@@ -42,7 +43,9 @@ export default async function PayablesPage() {
     getArrangementTotals(supabase),
     getUnpostedPayments(supabase),
     supabase.from("payable_payments").select("*").order("paid_date", { ascending: true }),
+    supabase.from("payable_defaults").select("payee, category_id, amount"),
   ]);
+  const amountDefaults: PayableDefaultAmount[] = ((defaultRows.data ?? []) as { payee: string; category_id: string | null; amount: number | string }[]).map((d) => ({ ...d, amount: Number(d.amount) }));
   const paymentsByPayable = new Map<string, PayablePayment[]>();
   for (const pay of (paymentRows.data ?? []) as PayablePayment[]) {
     const list = paymentsByPayable.get(pay.payable_id) ?? [];
@@ -161,7 +164,7 @@ export default async function PayablesPage() {
             {isFinance && (
               <>
                 <PostPaymentsMadeButton pendingCount={unposted.length} />
-                <PayableForm cats={cats} methods={methods} />
+                <PayableForm cats={cats} methods={methods} amountDefaults={amountDefaults} />
               </>
             )}
           </div>
@@ -381,7 +384,7 @@ export default async function PayablesPage() {
                               </InlineSubmit>
                             </form>
                           )}
-                          <PayableAddForVendor cats={cats} methods={methods} p={p} />
+                          <PayableAddForVendor cats={cats} methods={methods} p={p} amountDefaults={amountDefaults} />
                         </div>
                       </TD>
                     )}
@@ -464,10 +467,11 @@ interface PayableDefaults {
 }
 
 function PayableForm({
-  cats, methods, p, defaults, trigger,
+  cats, methods, p, defaults, trigger, amountDefaults = [],
 }: {
   cats: Category[];
   methods: PaymentMethod[];
+  amountDefaults?: PayableDefaultAmount[];
   p?: Payable;                 // present = edit existing
   defaults?: PayableDefaults;  // present (with no p) = new payable, pre-filled
   trigger?: { label: string; variant?: "primary" | "secondary" };
@@ -496,7 +500,7 @@ function PayableForm({
       </Field>
       <Field label="Description"><Input name="description" defaultValue={p?.description ?? ""} /></Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Amount" required><MoneyInput name="amount" defaultValue={p?.amount} required /></Field>
+        <AmountWithDefault defaults={amountDefaults} initialAmount={p?.amount} isNew={!p} />
         <Field label="Due Date" required><DateWithToday name="due_date" defaultValue={p?.due_date ?? todayISO()} required /></Field>
       </div>
       <Field label="Payment Method">
@@ -520,16 +524,18 @@ function PayableForm({
 
 /** Quick "+ Add" that opens a new payable pre-filled with this vendor's details. */
 function PayableAddForVendor({
-  cats, methods, p,
+  cats, methods, p, amountDefaults,
 }: {
   cats: Category[];
   methods: PaymentMethod[];
   p: Payable;
+  amountDefaults: PayableDefaultAmount[];
 }) {
   return (
     <PayableForm
       cats={cats}
       methods={methods}
+      amountDefaults={amountDefaults}
       defaults={{ payee: p.payee, category_id: p.category_id, payment_method_id: p.payment_method_id }}
       trigger={{ label: "+ Add", variant: "secondary" }}
     />

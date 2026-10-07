@@ -53,6 +53,7 @@ const NAV: Group[] = [
       { label: "Feedback", href: "/feedback", icon: "💬", roles: FIN_MGMT },
       { label: "Categories", href: "/settings/categories", icon: "🏷️", roles: FIN },
       { label: "Payment Methods", href: "/settings/payment-methods", icon: "💳", roles: FIN },
+      { label: "Default Amounts", href: "/settings/default-amounts", icon: "🧮", roles: FIN },
       { label: "Users & Access", href: "/settings/users", icon: "👥", roles: FIN },
       // Only shown once 2-step verification is switched on (NEXT_PUBLIC_REQUIRE_2FA).
       ...(process.env.NEXT_PUBLIC_REQUIRE_2FA === "true"

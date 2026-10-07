@@ -66,6 +66,38 @@ export async function savePaymentMethod(_: ActionState, fd: FormData): Promise<A
   }
 }
 
+export async function saveDefaultAmount(_: ActionState, fd: FormData): Promise<ActionState> {
+  try {
+    await requireFinance();
+    const supabase = await createClient();
+    const id = str(fd, "id");
+    const payee = str(fd, "payee");
+    const amount = num(fd, "amount");
+    if (!payee) return { error: "Payee is required" };
+    if (!(amount >= 0) || fd.get("amount") === "") return { error: "Enter an amount" };
+    const payload = { payee, category_id: str(fd, "category_id") || null, amount, updated_at: new Date().toISOString() };
+    const res = id
+      ? await supabase.from("payable_defaults").update(payload).eq("id", id)
+      : await supabase.from("payable_defaults").insert(payload);
+    if (res.error) {
+      return { error: res.error.code === "23505" ? "A default for this payee + category already exists — edit that one instead." : res.error.message };
+    }
+    revalidatePath("/settings/default-amounts");
+    revalidatePath("/payables");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function deleteDefaultAmount(fd: FormData): Promise<void> {
+  await requireFinance();
+  const supabase = await createClient();
+  await supabase.from("payable_defaults").delete().eq("id", str(fd, "id"));
+  revalidatePath("/settings/default-amounts");
+  revalidatePath("/payables");
+}
+
 export async function saveBankAccount(_: ActionState, fd: FormData): Promise<ActionState> {
   try {
     const session = await requireFinance();
