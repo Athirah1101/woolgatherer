@@ -22,6 +22,8 @@ import { PostPaymentsMadeButton } from "./PostPaymentsMadeButton";
 import { CategorySelect } from "./CategorySelect";
 import { ensureRecurringForCurrentMonth } from "@/lib/data/recurring";
 import { PaymentHistory } from "./PaymentHistory";
+import { OwedBreakdownButton } from "./OwedBreakdownButton";
+import { buildOwedBreakdown } from "@/lib/data/owedBreakdown";
 import { BoardsProvider, BoardsSection, BoardsToggleButton } from "./BoardsToggle";
 import { addToArrangement, approveInvoice, cancelPayable, markPayablePossiblyStopped, reactivatePayable, rejectInvoice, restorePayable, removeFromArrangement, savePayable, settlePayableInFull } from "./actions";
 
@@ -88,6 +90,13 @@ export default async function PayablesPage() {
   const dueSoonCount = dueSoonRows.length;
   const dueSoonTotal = sumMoney(dueSoonRows.map((r) => owedAmount(r.payable)));
   const overdueCount = unpaid.filter((r) => r.attention.level === "overdue").length;
+
+  const josephBreakdown = buildOwedBreakdown(
+    "Joseph Chua",
+    rows.map((r) => r.payable),
+    [...paymentsByPayable.values()].flat(),
+    methods,
+  );
 
   // Still owed to David Chua: his own payables plus his unpaid salary.
   const owedDavidOther = sumMoney(
@@ -172,12 +181,15 @@ export default async function PayablesPage() {
         <BoardsSection id="directors" title="Owed to directors">
           <div className="grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
             {owedJoseph > 0 && (
-              <SummaryCard
-                label="Owed to Joseph Chua"
-                value={formatMYR(owedJoseph)}
-                tone="indigo"
-                sub="Total still to repay for spending via the Joseph Chua method"
-              />
+              <div>
+                <SummaryCard
+                  label="Owed to Joseph Chua"
+                  value={formatMYR(owedJoseph)}
+                  tone="indigo"
+                  sub="Capital, bills paid via his method, and anything else owed to him"
+                />
+                <OwedBreakdownButton data={josephBreakdown} />
+              </div>
             )}
             {owedDavid > 0 && (
               <SummaryCard
