@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { FormDrawer, Field, Input, MoneyInput, Textarea, DateWithToday } from "@/components/form";
 import { ComboSelect } from "@/components/form";
 import { saveRefundCase } from "./actions";
@@ -32,6 +33,10 @@ export function RefundCaseForm({
   trigger: React.ReactNode;
 }) {
   const isEdit = Boolean(defaults?.id);
+  // HRDC-only fields (claim amount, HRDF received date/amount) only make sense
+  // for HRDC refunds, so they're hidden for every other refund type.
+  const [type, setType] = useState(defaults?.refund_type ?? "hrdc");
+  const isHrdc = type === "hrdc";
   return (
     <FormDrawer
       triggerLabel={trigger}
@@ -47,35 +52,48 @@ export function RefundCaseForm({
           <Input name="client_name" defaultValue={defaults?.client_name ?? ""} required />
         </Field>
         <Field label="Refund Type" required>
-          <ComboSelect name="refund_type" defaultValue={defaults?.refund_type ?? "hrdc"}>
+          <ComboSelect name="refund_type" value={type} onValueChange={setType}>
             {REFUND_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </ComboSelect>
         </Field>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Amount They Paid" hint="What the client paid us up front.">
-          <MoneyInput name="amount_client_paid" defaultValue={num(defaults?.amount_client_paid)} />
-        </Field>
-        <Field label="Amount They Claimed" hint="The HRDC claim amount.">
-          <MoneyInput name="claim_amount" defaultValue={num(defaults?.claim_amount)} />
-        </Field>
-      </div>
-      <Field
-        label="Date HRDF Amount Received"
-        hint="Leave blank until HRD Corp funds arrive — this starts the 30-day refund clock."
-      >
-        <DateWithToday name="hrdc_received_date" defaultValue={defaults?.hrdc_received_date ?? ""} />
-      </Field>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="HRDF Amount Received" hint="Defaults to the claim amount.">
-          <MoneyInput name="hrdc_amount_received" defaultValue={num(defaults?.hrdc_amount_received)} />
-        </Field>
-        <Field label="Refund Due to Client" hint="Defaults to the claim amount.">
-          <MoneyInput name="refund_amount_due" defaultValue={num(defaults?.refund_amount_due)} />
-        </Field>
-      </div>
+      {isHrdc ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Amount They Paid" hint="What the client paid us up front.">
+              <MoneyInput name="amount_client_paid" defaultValue={num(defaults?.amount_client_paid)} />
+            </Field>
+            <Field label="Amount They Claimed" hint="The HRDC claim amount.">
+              <MoneyInput name="claim_amount" defaultValue={num(defaults?.claim_amount)} />
+            </Field>
+          </div>
+          <Field
+            label="Date HRDF Amount Received"
+            hint="Leave blank until HRD Corp funds arrive — this starts the 30-day refund clock."
+          >
+            <DateWithToday name="hrdc_received_date" defaultValue={defaults?.hrdc_received_date ?? ""} />
+          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="HRDF Amount Received" hint="Defaults to the claim amount.">
+              <MoneyInput name="hrdc_amount_received" defaultValue={num(defaults?.hrdc_amount_received)} />
+            </Field>
+            <Field label="Refund Due to Client" hint="Defaults to the claim amount.">
+              <MoneyInput name="refund_amount_due" defaultValue={num(defaults?.refund_amount_due)} />
+            </Field>
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Amount They Paid" hint="What the client paid us up front.">
+            <MoneyInput name="amount_client_paid" defaultValue={num(defaults?.amount_client_paid)} />
+          </Field>
+          <Field label="Refund Due to Client" required hint="How much we need to pay back.">
+            <MoneyInput name="refund_amount_due" defaultValue={num(defaults?.refund_amount_due)} required />
+          </Field>
+        </div>
+      )}
       <Field label="Notes">
         <Textarea name="notes" defaultValue={defaults?.notes ?? ""} />
       </Field>

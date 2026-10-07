@@ -49,7 +49,13 @@ export async function saveRefundCase(_: ActionState, fd: FormData): Promise<Acti
     };
     let claimId: string | null = id || null;
     if (id) {
-      const { error } = await supabase.from("hrdc_claims").update(payload).eq("id", id);
+      // The HRDC-only fields aren't on the form for other refund types, so an
+      // edit must leave whatever is stored for them untouched.
+      const update: Record<string, unknown> = { ...payload };
+      if (payload.refund_type !== "hrdc") {
+        for (const k of ["claim_amount", "hrdc_received_date", "hrdc_amount_received", "stage"]) delete update[k];
+      }
+      const { error } = await supabase.from("hrdc_claims").update(update).eq("id", id);
       if (error) return { error: error.message };
       // Keep the mirror payable (amount/description/due) in step with the edit.
       await syncRefundPayable(supabase, id);
